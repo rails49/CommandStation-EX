@@ -1,0 +1,105 @@
+# Build the layout's firmware and publish it. Fork-only: upstream DCC-EX has no
+# such workflow, and nothing here changes what main.yml does.
+#
+# A tag v<upstream version>-rails49.<n> builds config.rails49.h against the
+# ESP32 core, merges the four images into one, attaches it to a release and
+# pushes an image carrying it. rails49/control pins that image by tag and runs
+# it to flash the station over USB.
+name: rails49 firmware
+
+on:
+  push:
+    tags: ['v*-rails49.*']
+  workflow_dispatch:
+
+env:
+  # The core the station has been built against since 5.4. Pinned because a
+  # different core moves the flash offsets this workflow hard codes below.
+  ESP32_CORE: 2.0.17
+  ESP32_INDEX: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+  IMAGE: ghcr.io/rails49/commandstation-ex
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Install the ESP32 core
+        run: |
+          arduino-cli core update-index --additional-urls "$ESP32_INDEX"
+          arduino-cli core install "esp32:esp32@$ESP32_CORE" --additional-urls "$ESP32_INDEX"
+
+      # config.rails49.h describes the hardware and is in the repository. The
+      # access point's password is not, because the repository is public.
+      - name: Write config.h
+        env:
+          WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
+        run: |
+          if [ -z "$WIFI_PASSWORD" ]; then
+            echo "The WIFI_PASSWORD secret is not set, so the access point would"
+            echo "come up with no password. Set it before releasing."
+            exit 1
+          fi
+          cp config.rails49.h config.h
+          printf '#define WIFI_PASSWORD "%s"\n' "$WIFI_PASSWORD" >> config.h
+
+      # The station reports this in its <s> banner, so a person reading the
+      # banner can tell exactly which build is on the box.
+      - name: Stamp the build id
+        run: printf '#define GITHUB_SHA "%s"\n' "$GITHUB_REF_NAME" > GITHUB_SHA.h
+
+      - name: Compile
+        run: arduino-cli compile --fqbn esp32:esp32:esp32 --warnings all --export-binaries .
+
+      # One file at one offset. The offsets and flash settings are the ones the
+      # core's own upload recipe uses (platform.txt, tools.esptool_py.upload).
+      - name: Merge into one image
+        run: |
+          pip install --no-cache-dir esptool==4.5.1
+          core="$HOME/.arduino15/packages/esp32/hardware/esp32/$ESP32_CORE"
+          build=build/esp32.esp32.esp32
+          esptool.py --chip esp32 merge_bin -o firmware.bin \
+            --flash_mode dio --flash_freq 80m --flash_size 4MB \
+            0x1000  "$build/CommandStation-EX.ino.bootloader.bin" \
+            0x8000  "$build/CommandStation-EX.ino.partitions.bin" \
+            0xe000  "$core/tools/partitions/boot_app0.bin" \
+            0x10000 "$build/CommandStation-EX.ino.bin"
+          ls -l firmware.bin
+
+      - name: Keep the image when there is no tag to release
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: firmware.bin
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" firmware.bin \
+            --title "$GITHUB_REF_NAME" \
+            --notes "EX-CSB1 with EX8874, built from config.rails49.h.
+
+          Flash the whole image at offset 0x0:
+
+              esptool.py --chip esp32 --port /dev/dccex --baud 460800 \\
+                --before default_reset --after hard_reset write_flash -z \\
+                --flash_mode dio --flash_freq 80m --flash_size 4MB 0x0 firmware.bin
+
+          Or pull \`$IMAGE:$GITHUB_REF_NAME\`, which carries this image and esptool."
+
+      - name: Push the flashing image
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build -f rails49/Dockerfile --build-arg "VERSION=$GITHUB_REF_NAME" \
+            -t "$IMAGE:$GITHUB_REF_NAME" .
+          docker push "$IMAGE:$GITHUB_REF_NAME"
