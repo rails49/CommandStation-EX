@@ -3,7 +3,8 @@
 
 #include "StringFormatter.h"
 
-#define VERSION "5.6.3"
+#define VERSION "5.6.4"
+// 5.6.4  - <JG track mA> and <JG ALL mA> set the current limit of one or all tracks at runtime
 // 5.6.3  - BugFix: EXRAIL READ_LOCO IFLOCO(0)
 // 5.6.2  - Bugfix: Sniffer decoder filter out irrelevant DCC packets
 //        - Bugfix: Make sniffer railsync input detection interrupt safe

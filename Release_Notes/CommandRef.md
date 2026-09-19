@@ -130,6 +130,8 @@ Track Management
 <= track DCC|PROG|OFF>
 <= track DC|DCX cabid>
 <JG>
+<JG track mA>
+<JG ALL mA>
 <JI>
 
 

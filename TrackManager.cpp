@@ -686,6 +686,21 @@ void TrackManager::reportGauges(Print* stream) {
     StringFormatter::send(stream,F(">\n"));    
 }
 
+// <JG t mA> and <JG ALL mA>. Fails for a track that does not exist or that
+// has no current sense and therefore no overload detection.
+bool TrackManager::setCurrentLimit(byte t, int16_t mA) {
+  if (t > lastTrack) return false;
+  if (track[t]==NULL) return false;
+  return track[t]->setCurrentLimit(mA);
+}
+
+// Tell every client the limits now in force, same format as <JG> replies with.
+void TrackManager::broadcastGauges() {
+  StringBuffer buffer(64);
+  reportGauges(&buffer);
+  CommandDistributor::broadcastRaw(CommandDistributor::COMMAND_TYPE, buffer.getString());
+}
+
 void TrackManager::setJoinRelayPin(byte joinRelayPin) {
   joinRelay=joinRelayPin;
   if (joinRelay!=UNUSED_PIN) {

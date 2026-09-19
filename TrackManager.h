@@ -88,6 +88,8 @@ class TrackManager {
     static void setJoinRelayPin(byte joinRelayPin);
     static void sampleCurrent();
     static void reportGauges(Print* stream);
+    static void broadcastGauges();
+    static bool setCurrentLimit(byte t, int16_t mA);
     static void reportCurrent(Print* stream);
     static void reportCurrentLCD(uint8_t display, byte row);
     static void reportObsoleteCurrent(Print* stream); 

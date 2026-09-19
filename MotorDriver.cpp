@@ -472,6 +472,19 @@ unsigned int MotorDriver::mA2raw( unsigned int mA) {
   return (int32_t)mA * senseScale / senseFactorInternal;
 }
 
+bool MotorDriver::setCurrentLimit(unsigned int mA) {
+  if (currentPin==UNUSED_PIN) return false;
+  // Clamp to the highest current the ADC can report. A trip value that can
+  // never be reached would mean no short circuit protection at all. This is
+  // the same reasoning as the clamp in the constructor, but measured against
+  // the sense offset taken at the last power on rather than against zero.
+  unsigned int highestmA=raw2mA(ADCee::ADCmax()-senseOffset);
+  if (mA > highestmA) mA=highestmA;
+  tripMilliamps=mA;
+  rawCurrentTripValue=mA2raw(mA);
+  return true;
+}
+
 void  MotorDriver::getFastPin(const FSH* type,int pin, bool input, FASTPIN & result) {
     // DIAG(F("MotorDriver %S Pin=%d,"),type,pin);
     (void) type; // avoid compiler warning if diag not used above.

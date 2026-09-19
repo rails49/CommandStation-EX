@@ -835,9 +835,24 @@ void DCCEXParser::parseOne(Print *stream, byte *com, RingStream * ringStream)
                     CommandDistributor::setClockTime(p[1], p[2]);
                     return;
                 
-                case "G"_hk: // <JG> current gauge limits
+                case "G"_hk: // <JG> current gauge limits, <JG track mA> or <JG ALL mA> to set one or all
+                    if (params==3) {
+                        if (p[2]<=0) break;
+                        if (p[1]=="ALL"_hk) {
+                            bool any=false;
+                            for (byte t=0;t<TrackManager::numTracks();t++)
+                                any |= TrackManager::setCurrentLimit(t,p[2]);
+                            if (!any) break;
+                        }
+                        else {
+                            if (p[1]<"A"_hk || p[1]>"H"_hk) break;
+                            if (!TrackManager::setCurrentLimit(p[1]-"A"_hk,p[2])) break;
+                        }
+                        TrackManager::broadcastGauges();
+                        return;
+                    }
                     if (params>1) break;
-                    TrackManager::reportGauges(stream);   // <g limit...limit>     
+                    TrackManager::reportGauges(stream);   // <jG limit...limit>     
                     return;
                 
                 case "I"_hk: // <JI> current values

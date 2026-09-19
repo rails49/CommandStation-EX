@@ -249,6 +249,9 @@ class MotorDriver {
     inline int getRawCurrentTripValue() {
 	    return rawCurrentTripValue;
     }
+    // Set the current limit (trip current) at runtime. Returns false if this
+    // driver has no current sense and therefore no overload detection at all.
+    bool setCurrentLimit(unsigned int mA);
     bool isPWMCapable();
     bool canMeasureCurrent();
     bool trackPWM = false; // this track uses PWM timer to generate the DCC waveform
