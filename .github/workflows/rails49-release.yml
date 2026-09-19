@@ -35,19 +35,10 @@ jobs:
           arduino-cli core update-index --additional-urls "$ESP32_INDEX"
           arduino-cli core install "esp32:esp32@$ESP32_CORE" --additional-urls "$ESP32_INDEX"
 
-      # config.rails49.h describes the hardware and is in the repository. The
-      # access point's password is not, because the repository is public.
+      # config.rails49.h is the whole configuration, including the access
+      # point's password, which is published rather than kept.
       - name: Write config.h
-        env:
-          WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
-        run: |
-          if [ -z "$WIFI_PASSWORD" ]; then
-            echo "The WIFI_PASSWORD secret is not set, so the access point would"
-            echo "come up with no password. Set it before releasing."
-            exit 1
-          fi
-          cp config.rails49.h config.h
-          printf '#define WIFI_PASSWORD "%s"\n' "$WIFI_PASSWORD" >> config.h
+        run: cp config.rails49.h config.h
 
       # The station reports this in its <s> banner, so a person reading the
       # banner can tell exactly which build is on the box.

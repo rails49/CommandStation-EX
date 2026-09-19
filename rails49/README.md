@@ -11,8 +11,7 @@ based on, the suffix counts builds of this fork on top of it.
 
 Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
 
-1. builds `config.rails49.h` against ESP32 core 2.0.17, appending the access
-   point's password from the `WIFI_PASSWORD` repository secret;
+1. builds `config.rails49.h` against ESP32 core 2.0.17;
 2. writes the tag into `GITHUB_SHA.h`, so the station's `<s>` banner names the
    build that is on it;
 3. merges the bootloader, partition table, boot_app0 and application into one
@@ -24,16 +23,21 @@ Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
 Running the workflow by hand from the Actions tab builds the same image and
 keeps it as a workflow artifact, without releasing or pushing anything.
 
-## Before the first release
+## The access point's password is published
 
-Set the secret. It is the access point's password, and the master copy belongs
-in 1Password, not in GitHub:
+The station is its own access point, and `config.rails49.h` names its password
+in the clear. That is on purpose.
 
-    op read "op://Private/rails49 station AP/password" |
-      gh secret set WIFI_PASSWORD --repo rails49/CommandStation-EX
+Left unset, the firmware generates `PASS_<mac>` and shows it on the station's
+display. That works standing at the layout and nowhere else. Naming the password
+in the file means it can be read from here instead, at the cost of it being a
+password anyone can read.
 
-`config.rails49.h` holds everything else, because the rest of the file describes
-hardware rather than being a secret.
+It guards nothing that is otherwise guarded: everyone who can reach the layout
+network can already drive every train, with no authentication anywhere. Radio
+range is what is left. Anyone who wants their own password builds their own
+firmware, which is what upstream DCC-EX expects of everybody anyway: it ships no
+binaries, and every user compiles their own `config.h` on their own machine.
 
 ## Flashing
 
@@ -52,11 +56,10 @@ The layout server pulls the image and runs it against the serial device:
 ## Building by hand
 
     cp config.rails49.h config.h
-    printf '#define WIFI_PASSWORD "%s"\n' "$(op read 'op://Private/rails49 station AP/password')" >> config.h
     arduino-cli compile --fqbn esp32:esp32:esp32 --export-binaries .
 
 Then merge with the offsets the workflow uses. `config.h` is gitignored, so it
-will not be committed, but delete it when you are done anyway.
+will not be committed.
 
 ## Why the image is merged
 
