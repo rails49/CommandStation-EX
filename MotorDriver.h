@@ -232,6 +232,10 @@ class MotorDriver {
 #endif
     };
     int  getCurrentRaw(bool fromISR=false);
+    // Mean of the samples the overload check has taken since the last call.
+    // A single getCurrentRaw() is one instantaneous ADC read, which scatters
+    // widely around the real current while a loco is running.
+    int  getCurrentRawMean();
     unsigned int raw2mA( int raw);
     unsigned int mA2raw( unsigned int mA);
     inline bool brakeCanPWM() {
@@ -319,12 +323,18 @@ class MotorDriver {
     inline void  getFastPin(const FSH* type,int pin, FASTPIN & result) {
 	getFastPin(type, pin, 0, result);
     };
-    // side effect sets lastCurrent and tripValue
+    // side effect sets lastCurrent and tripValue, and adds to the mean
     inline bool checkCurrent(bool useProgLimit) {
       tripValue= useProgLimit?progTripValue:getRawCurrentTripValue();
       lastCurrent = getCurrentRaw();
       if (lastCurrent < 0)
 	lastCurrent = -lastCurrent;
+      currentSum += lastCurrent;
+      if (++currentSamples == CURRENT_SAMPLES_MAX) {
+	// nobody has asked for a while: keep a mean weighted to recent samples
+	currentSum >>= 1;
+	currentSamples >>= 1;
+      }
       return lastCurrent >= tripValue;
     };
     // side effect sets lastCurrent
@@ -359,6 +369,11 @@ class MotorDriver {
     static unsigned long globalOverloadStart; // timestamp in microseconds
     int progTripValue;
     int  lastCurrent; //temp value
+    // Sum and count of samples for getCurrentRawMean(). 4095 * 16384 fits
+    // in 32 bits.
+    static const unsigned int CURRENT_SAMPLES_MAX = 16384;
+    uint32_t currentSum = 0;
+    unsigned int currentSamples = 0;
     int  tripValue;   //temp value
 #ifdef ANALOG_READ_INTERRUPT
     volatile unsigned long sampleCurrentTimestamp;

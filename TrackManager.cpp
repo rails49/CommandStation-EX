@@ -641,7 +641,7 @@ void TrackManager::reportCurrent(Print* stream) {
     FOR_EACH_TRACK(t) {
          StringFormatter::send(stream, F(" %d"),
          (track[t]->getPower()==POWERMODE::OVERLOAD) ? -1 :
-            track[t]->raw2mA(track[t]->getCurrentRaw(false)));
+            track[t]->raw2mA(track[t]->getCurrentRawMean()));
          }
     StringFormatter::send(stream,F(">\n"));    
 }
