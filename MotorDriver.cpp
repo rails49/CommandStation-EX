@@ -463,6 +463,14 @@ void MotorDriver::throttleInrush(bool on) {
   analogWrite(brakePin,duty);
 #endif
 }
+int MotorDriver::getCurrentRawMean() {
+  if (currentSamples == 0) return getCurrentRaw(false);
+  int mean = currentSum / currentSamples;
+  currentSum = 0;
+  currentSamples = 0;
+  return mean;
+}
+
 unsigned int MotorDriver::raw2mA( int raw) {
   //DIAG(F("%d = %d * %d / %d"), (int32_t)raw * senseFactorInternal / senseScale, raw, senseFactorInternal, senseScale);
   return (int32_t)raw * senseFactorInternal / senseScale;
@@ -572,6 +580,8 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
   case POWERMODE::OFF: {
     lastPowerMode = POWERMODE::OFF;
     power_sample_overload_wait = POWER_SAMPLE_OVERLOAD_WAIT;
+    currentSum = 0;
+    currentSamples = 0;
     break;
   }
 
