@@ -17,6 +17,9 @@ A track now has one Current Limit, and `<JG>` reports it.
   state. The Prog Limit and its bypasses no longer apply to that track.
 - A mode change into or out of PROG broadcasts `<jG>`, since the reported limit
   can change with it.
+- `<JG>` reports the limit in mA as it was given, not converted to an ADC
+  count and back, so a limit set to 250 reads 250 rather than 249. A limit
+  clamped to the ADC's range reads as the clamped value.
 
 ## Consequences
 

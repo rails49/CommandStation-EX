@@ -682,8 +682,7 @@ void TrackManager::reportCurrentLCD(uint8_t display, byte row) {
 void TrackManager::reportGauges(Print* stream) {
     StringFormatter::send(stream,F("<jG"));
     FOR_EACH_TRACK(t) {
-         StringFormatter::send(stream, F(" %d"),
-            track[t]->raw2mA(track[t]->getRawCurrentLimit()));
+         StringFormatter::send(stream, F(" %d"), track[t]->getCurrentLimitMA());
          }
     StringFormatter::send(stream,F(">\n"));    
 }

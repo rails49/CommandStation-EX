@@ -211,6 +211,7 @@ MotorDriver::MotorDriver(int16_t power_pin, byte signal_pin, byte signal_pin2, i
     //    DIAG(F("Changing short detection value from %d to %d mA"),
     // raw2mA(rawCurrentTripValue), raw2mA(ADCee::ADCmax()-senseOffset));
     rawCurrentTripValue=ADCee::ADCmax()-senseOffset;
+    tripMilliamps=raw2mA(rawCurrentTripValue);
   }
 
   if (currentPin==UNUSED_PIN) 

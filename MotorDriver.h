@@ -253,11 +253,11 @@ class MotorDriver {
     inline int getRawCurrentTripValue() {
 	    return rawCurrentTripValue;
     }
-    // The limit in force: the prog limit on a PROG track whose limit was
-    // never set with <JG>, otherwise the track's own. This is what <JG>
-    // reports.
-    inline int getRawCurrentLimit() {
-      return (!limitSet && (getMode() & TRACK_MODE_PROG)) ? progTripValue : rawCurrentTripValue;
+    // The limit in force, in mA as it was given rather than through the ADC
+    // round trip: the prog limit on a PROG track whose limit was never set
+    // with <JG>, otherwise the track's own. This is what <JG> reports.
+    inline unsigned int getCurrentLimitMA() {
+      return (!limitSet && (getMode() & TRACK_MODE_PROG)) ? TRIP_CURRENT_PROG : tripMilliamps;
     }
     // Set the current limit (trip current) at runtime. Returns false if this
     // driver has no current sense and therefore no overload detection at all.
