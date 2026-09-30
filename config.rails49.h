@@ -12,10 +12,6 @@
 // C and D on the EX8874.
 #define MOTOR_SHIELD_TYPE EXCSB1_WITH_EX8874
 
-// Boot limit for every track. Since <JG track mA> exists this is a starting
-// value rather than a ceiling: the layout raises or lowers it at power on.
-#define MAX_CURRENT 1234
-
 // No wifi. The layout server reaches the station over USB.
 
 #define OLED_DRIVER 132,64
