@@ -490,6 +490,7 @@ bool MotorDriver::setCurrentLimit(unsigned int mA) {
   if (mA > highestmA) mA=highestmA;
   tripMilliamps=mA;
   rawCurrentTripValue=mA2raw(mA);
+  limitSet=true;
   return true;
 }
 

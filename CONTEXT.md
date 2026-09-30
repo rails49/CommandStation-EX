@@ -40,6 +40,12 @@ definition for the shield in use. The station's starting value for a track's
 Current Limit.
 _Avoid_: hardware limit, default limit, shield limit
 
+**Prog Limit**:
+250 mA, the starting Current Limit of a track in PROG mode. It is bypassed
+during ack operations, joins and `<C PROGBOOST>`. A Current Limit set with
+`<JG>` replaces it.
+_Avoid_: NMRA limit, service mode limit
+
 **Overload**:
 The state a track enters when its current reaches its Current Limit. Power is
 cut and re-tried on a lengthening back-off.

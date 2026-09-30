@@ -253,6 +253,12 @@ class MotorDriver {
     inline int getRawCurrentTripValue() {
 	    return rawCurrentTripValue;
     }
+    // The limit in force: the prog limit on a PROG track whose limit was
+    // never set with <JG>, otherwise the track's own. This is what <JG>
+    // reports.
+    inline int getRawCurrentLimit() {
+      return (!limitSet && (getMode() & TRACK_MODE_PROG)) ? progTripValue : rawCurrentTripValue;
+    }
     // Set the current limit (trip current) at runtime. Returns false if this
     // driver has no current sense and therefore no overload detection at all.
     bool setCurrentLimit(unsigned int mA);
@@ -328,7 +334,9 @@ class MotorDriver {
     };
     // side effect sets lastCurrent and tripValue, and adds to the mean
     inline bool checkCurrent(bool useProgLimit) {
-      tripValue= useProgLimit?progTripValue:getRawCurrentTripValue();
+      // A limit set with <JG> is the only limit: the prog limit and its
+      // bypasses no longer apply to this track.
+      tripValue= (useProgLimit && !limitSet)?progTripValue:getRawCurrentTripValue();
       lastCurrent = getCurrentRaw();
       if (lastCurrent < 0)
 	lastCurrent = -lastCurrent;
@@ -371,6 +379,7 @@ class MotorDriver {
     // used to sync restore time when common Fault pin detected
     static unsigned long globalOverloadStart; // timestamp in microseconds
     int progTripValue;
+    bool limitSet = false; // set by <JG>, replaces the prog limit
     int  lastCurrent; //temp value
     // Sum and count of samples for getCurrentRawMean(). 4095 * 16384 fits
     // in 32 bits.

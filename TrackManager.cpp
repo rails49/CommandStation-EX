@@ -376,6 +376,8 @@ bool TrackManager::setTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr
       track[trackToSet]->setPower(POWERMODE::OFF);
     }
     streamTrackState(NULL,trackToSet);
+    // A track entering or leaving PROG may change the limit <JG> reports.
+    if ((mode ^ oldmode) & TRACK_MODE_PROG) broadcastGauges();
     //DIAG(F("TrackMode=%d"),mode);
     return true; 
 }
@@ -681,7 +683,7 @@ void TrackManager::reportGauges(Print* stream) {
     StringFormatter::send(stream,F("<jG"));
     FOR_EACH_TRACK(t) {
          StringFormatter::send(stream, F(" %d"),
-            track[t]->raw2mA(track[t]->getRawCurrentTripValue()));
+            track[t]->raw2mA(track[t]->getRawCurrentLimit()));
          }
     StringFormatter::send(stream,F(">\n"));    
 }
