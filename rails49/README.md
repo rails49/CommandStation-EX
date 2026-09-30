@@ -23,21 +23,10 @@ Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
 Running the workflow by hand from the Actions tab builds the same image and
 keeps it as a workflow artifact, without releasing or pushing anything.
 
-## The access point's password is published
+## No wifi
 
-The station is its own access point, and `config.rails49.h` names its password
-in the clear. That is on purpose.
-
-Left unset, the firmware generates `PASS_<mac>` and shows it on the station's
-display. That works standing at the layout and nowhere else. Naming the password
-in the file means it can be read from here instead, at the cost of it being a
-password anyone can read.
-
-It guards nothing that is otherwise guarded: everyone who can reach the layout
-network can already drive every train, with no authentication anywhere. Radio
-range is what is left. Anyone who wants their own password builds their own
-firmware, which is what upstream DCC-EX expects of everybody anyway: it ships no
-binaries, and every user compiles their own `config.h` on their own machine.
+`config.rails49.h` leaves wifi out, so the station runs no access point and
+accepts no network connections. The layout server reaches it over USB only.
 
 ## Flashing
 
