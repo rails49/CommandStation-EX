@@ -131,7 +131,76 @@ void TrackManager::Setup(const FSH * shieldname,
     }
   }
   DCC::setShieldName(shieldname);
+#ifdef FAST_OVERCURRENT_GUARD
+  hw_timer_t *guardTimer = timerBegin(1, 80, true); // timer 1 at 1MHz, timer 0 is DCCTimer's
+  timerAttachInterrupt(guardTimer, guardISR, true);
+  timerAlarmWrite(guardTimer, OVERCURRENT_TICK_US, true);
+  timerAlarmEnable(guardTimer);
+  DIAG(F("Fast overcurrent guard: trip after %dus, inrush %dms"),
+       OVERCURRENT_FAST_TRIP_US, OVERCURRENT_INRUSH_MS);
+#endif
 }
+
+#ifdef FAST_OVERCURRENT_GUARD
+// Fast overcurrent guard, runs every OVERCURRENT_TICK_US from a
+// hardware timer. Each tick it reads the fault pin of every guarded
+// track and the current of one of them (round robin, an ADC
+// conversion is slow). Then:
+// - On the first sign of a short it inverts the reverse loop (AUTO)
+//   tracks: the one which is overloaded or, if a normal track is
+//   overloaded, all of them, as in a reverse loop short the driver of
+//   the normal track can be the one that sees it (or switches off by
+//   itself). After that all tracks get GUARD_SETTLE_US to recover.
+// - If inverting does not help, a track which has been overloaded for
+//   OVERCURRENT_FAST_TRIP_US gets its power cut.
+// The guard watches the fault pin from power on, the current only
+// OVERCURRENT_INRUSH_MS after power on (also after each retry), as
+// decoders charge their capacitors. checkPowerOverload() picks up the
+// events of the guard and does the messages and the retry logic.
+void IRAM_ATTR TrackManager::guardISR() {
+  static byte adcTrack = 0;
+  unsigned long now = micros();
+  bool over[MAX_TRACKS];
+  bool anyOver = false;
+  bool autoOver = false;
+  bool mainOver = false; // a track that can border a reverse loop, not PROG
+
+  // next track to read the ADC of
+  for (byte i = 0; i <= lastTrack; i++) {
+    if (++adcTrack > lastTrack) adcTrack = 0;
+    if (track[adcTrack] && track[adcTrack]->guardActive && track[adcTrack]->canMeasureCurrent())
+      break;
+  }
+  FOR_EACH_TRACK(t) {
+    over[t] = track[t] && track[t]->guardPoll(t == adcTrack, now);
+    if (over[t]) {
+      anyOver = true;
+      if (track[t]->guardAuto) autoOver = true;
+      else if (!(track[t]->getMode() & TRACK_MODE_PROG)) mainOver = true;
+    }
+  }
+  if (!anyOver) return;
+
+  bool inverted = false;
+  FOR_EACH_TRACK(t) {
+    if (track[t] && track[t]->guardAuto && (over[t] || (!autoOver && mainOver)))
+      inverted |= track[t]->guardTryInvert(now);
+  }
+  if (inverted) {
+    FOR_EACH_TRACK(t) {
+      if (track[t]) {
+	track[t]->guardHoldUntil = now + MotorDriver::GUARD_SETTLE_US;
+	track[t]->guardAcc = 0;
+      }
+    }
+    return;
+  }
+  FOR_EACH_TRACK(t) {
+    if (over[t] && track[t]->guardAcc >= (long)OVERCURRENT_FAST_TRIP_US)
+      track[t]->guardCut();
+  }
+}
+#endif
 
 void TrackManager::addTrack(byte t, MotorDriver* driver) {
      track[t]=driver;

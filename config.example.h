@@ -74,6 +74,24 @@ The configuration file for DCC-EX Command Station
 //
 /////////////////////////////////////////////////////////////////////////////////////
 //
+// Overcurrent timing. After a track is powered on, high current is
+// tolerated for OVERCURRENT_INRUSH_MS so that decoders can charge their
+// capacitors. A shorter time means less energy goes into a short that is
+// still there when power is restored, but locos with large capacitors
+// (stay alive) may then trip the track at power on. Default 100.
+// #define OVERCURRENT_INRUSH_MS 100
+//
+// ESP32 only: a timer interrupt watches the fault pins from power on, and
+// the current after the inrush time, and switches a DCC track off once it
+// has been overloaded for OVERCURRENT_FAST_TRIP_US (default 1000). This
+// includes the programming track. Reverse loop (AUTO) tracks are
+// inverted on the first sign of a short. If you see trips while running
+// (not at power on), raise OVERCURRENT_FAST_TRIP_US or disable the guard.
+// #define OVERCURRENT_FAST_TRIP_US 1000
+// #define DISABLE_FAST_OVERCURRENT
+//
+/////////////////////////////////////////////////////////////////////////////////////
+//
 // The IP port to talk to a WIFI or Ethernet shield.
 //
 #define IP_PORT 2560
