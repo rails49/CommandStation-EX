@@ -54,6 +54,30 @@ enum TRACK_MODE : byte {
   TRACK_MODE_DCX = TRACK_MODE_DC_INV // DCX is other name for historical reasons
 };
 
+// How long high current is tolerated after a track is powered on, to let
+// decoders charge their capacitors (inrush). Lower values shorten the time
+// a persistent short gets power at each retry, but locos with large
+// capacitors may then not start. Unit: milliseconds.
+#ifndef OVERCURRENT_INRUSH_MS
+#define OVERCURRENT_INRUSH_MS 100
+#endif
+
+// ESP32 only: fast overcurrent guard. A hardware timer looks at the
+// current and the fault pin of each DCC track every OVERCURRENT_TICK_US
+// and cuts power from interrupt context once a track has been overloaded
+// for OVERCURRENT_FAST_TRIP_US, instead of waiting for the main loop.
+// It is armed OVERCURRENT_INRUSH_MS after power on. Disable it with
+// DISABLE_FAST_OVERCURRENT. See TrackManager::guardISR().
+#if defined(ARDUINO_ARCH_ESP32) && !defined(DISABLE_FAST_OVERCURRENT)
+#define FAST_OVERCURRENT_GUARD
+#endif
+#ifndef OVERCURRENT_FAST_TRIP_US
+#define OVERCURRENT_FAST_TRIP_US 1000
+#endif
+#ifndef OVERCURRENT_TICK_US
+#define OVERCURRENT_TICK_US 100
+#endif
+
 #define setHIGH(fastpin)  *fastpin.inout |= fastpin.maskHIGH
 #define setLOW(fastpin)   *fastpin.inout &= fastpin.maskLOW
 #define isHIGH(fastpin)   (*fastpin.inout & fastpin.maskHIGH)
@@ -283,6 +307,10 @@ class MotorDriver {
   inline void setMode(TRACK_MODE m) {
     trackMode = m;
     invertOutput(trackMode & TRACK_MODIFIER_INV);
+#ifdef FAST_OVERCURRENT_GUARD
+    guardAuto = trackMode & TRACK_MODIFIER_AUTO;
+    guardActive = guardActive && guardEligible();
+#endif
   };
   inline void invertOutput() {               // toggles output inversion
     invertPhase = !invertPhase;
@@ -312,6 +340,36 @@ class MotorDriver {
   inline TRACK_MODE getMode() {
     return trackMode;
   };
+#ifdef FAST_OVERCURRENT_GUARD
+    // Fast overcurrent guard state, shared with TrackManager::guardISR().
+    // Bit flags for guardEvent, set in the ISR and consumed by
+    // checkPowerOverload() in the main loop.
+    static const uint32_t GUARD_INVERTED = 1;
+    static const uint32_t GUARD_TRIPPED = 2;
+    // After an invert all tracks ignore overcurrent this long. Must be longer than
+    // the automatic retry time of driver chips that switch off by themselves
+    // (DRV8874: 2ms) as they keep their fault pin active until then.
+    static const unsigned long GUARD_SETTLE_US = 4000UL;
+    // A reverse loop track is not inverted again within this time
+    static const unsigned long GUARD_REINVERT_US = 20000UL;
+    bool guardEligible();
+    inline bool guardArmed() {
+      return guardActive && (long)(micros() - guardArmAt) >= 0;
+    };
+    bool guardPoll(bool readADC, unsigned long now);
+    bool guardTryInvert(unsigned long now);
+    void guardCut();
+    volatile bool guardActive = false;         // power is on and track is a guarded DCC track
+    volatile bool guardAuto = false;           // track is a reverse loop (AUTO) track
+    volatile unsigned long guardArmAt = 0;     // guard ignores the track until then (inrush)
+    volatile unsigned long guardHoldUntil = 0; // guard ignores overcurrent until then (after invert)
+    volatile unsigned long guardLastInvert = 0;
+    volatile long guardAcc = 0;                // microseconds of overcurrent, leaky
+    volatile int guardLastRaw = 0;             // last ADC sample, offset removed
+    volatile uint32_t guardEvent = 0;
+    volatile int guardEventRaw = 0;
+    volatile bool guardEventFault = false;
+#endif
   private:
     char trackLetter = '?';
     bool isProgTrack = false; // tells us if this is a prog track
@@ -375,11 +433,11 @@ class MotorDriver {
     // Time after which we consider a ALERT over 
     static const unsigned long POWER_SAMPLE_ALERT_GOOD =        20000UL;
     // How long to ignore fault pin if current is under limit
-    static const unsigned long POWER_SAMPLE_IGNORE_FAULT_LOW = 100000UL;
+    static const unsigned long POWER_SAMPLE_IGNORE_FAULT_LOW = OVERCURRENT_INRUSH_MS * 1000UL;
     // How long to ignore fault pin if current is higher than limit
     static const unsigned long POWER_SAMPLE_IGNORE_FAULT_HIGH =  5000UL;
     // How long to wait between overcurrent and turning off
-    static const unsigned long POWER_SAMPLE_IGNORE_CURRENT  =  100000UL;
+    static const unsigned long POWER_SAMPLE_IGNORE_CURRENT  = OVERCURRENT_INRUSH_MS * 1000UL;
     // Upper limit for retry period
     static const unsigned long POWER_SAMPLE_RETRY_MAX =      10000000UL;
     
