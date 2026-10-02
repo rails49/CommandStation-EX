@@ -57,7 +57,8 @@ enum TRACK_MODE : byte {
 // How long high current is tolerated after a track is powered on, to let
 // decoders charge their capacitors (inrush). Lower values shorten the time
 // a persistent short gets power at each retry, but locos with large
-// capacitors may then not start. Unit: milliseconds.
+// capacitors may then not start. On ESP32 the fast overcurrent guard
+// still watches the fault pin during this time. Unit: milliseconds.
 #ifndef OVERCURRENT_INRUSH_MS
 #define OVERCURRENT_INRUSH_MS 100
 #endif
@@ -66,7 +67,8 @@ enum TRACK_MODE : byte {
 // current and the fault pin of each DCC track every OVERCURRENT_TICK_US
 // and cuts power from interrupt context once a track has been overloaded
 // for OVERCURRENT_FAST_TRIP_US, instead of waiting for the main loop.
-// It is armed OVERCURRENT_INRUSH_MS after power on. Disable it with
+// It watches the fault pin from power on, and the current from
+// OVERCURRENT_INRUSH_MS after power on. Disable it with
 // DISABLE_FAST_OVERCURRENT. See TrackManager::guardISR().
 #if defined(ARDUINO_ARCH_ESP32) && !defined(DISABLE_FAST_OVERCURRENT)
 #define FAST_OVERCURRENT_GUARD
@@ -353,15 +355,12 @@ class MotorDriver {
     // A reverse loop track is not inverted again within this time
     static const unsigned long GUARD_REINVERT_US = 20000UL;
     bool guardEligible();
-    inline bool guardArmed() {
-      return guardActive && (long)(micros() - guardArmAt) >= 0;
-    };
     bool guardPoll(bool readADC, unsigned long now);
     bool guardTryInvert(unsigned long now);
     void guardCut();
     volatile bool guardActive = false;         // power is on and track is a guarded DCC track
     volatile bool guardAuto = false;           // track is a reverse loop (AUTO) track
-    volatile unsigned long guardArmAt = 0;     // guard ignores the track until then (inrush)
+    volatile unsigned long guardArmAt = 0;     // guard ignores the current until then (inrush)
     volatile unsigned long guardHoldUntil = 0; // guard ignores overcurrent until then (after invert)
     volatile unsigned long guardLastInvert = 0;
     volatile long guardAcc = 0;                // microseconds of overcurrent, leaky

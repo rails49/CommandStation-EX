@@ -244,7 +244,7 @@ void MotorDriver::setPower(POWERMODE mode) {
 #ifdef FAST_OVERCURRENT_GUARD
   bool wasOn=(powerMode==POWERMODE::ON || powerMode==POWERMODE::ALERT);
   if (on && !wasOn) {
-    // power comes on: let inrush pass before the guard looks at this track
+    // power comes on: let inrush pass before the guard looks at the current
     unsigned long now = micros();
     guardArmAt = now + OVERCURRENT_INRUSH_MS * 1000UL;
     guardHoldUntil = now;
@@ -289,10 +289,10 @@ void MotorDriver::setBrake(bool on, bool interruptContext) {
 }
 
 #ifdef FAST_OVERCURRENT_GUARD
-// The guard only looks after DCC tracks (not DC or PROG) where it can
+// The guard only looks after DCC tracks (not DC) where it can
 // switch off power itself, that is the power pin is a native GPIO.
 bool MotorDriver::guardEligible() {
-  if (!(trackMode & (TRACK_MODE_MAIN | TRACK_MODE_EXT | TRACK_MODE_BOOST)))
+  if (!(trackMode & (TRACK_MODE_MAIN | TRACK_MODE_PROG | TRACK_MODE_EXT | TRACK_MODE_BOOST)))
     return false;
   if (powerPin >= 40) // not an ESP32 GPIO pin
     return false;
@@ -311,14 +311,15 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
       guardLastRaw = raw < 0 ? -raw : raw;
     }
   }
-  if ((long)(now - guardArmAt) < 0) // inrush, main loop handles that
-    return false;
   if ((long)(now - guardHoldUntil) < 0)
     return false;
   bool fault = false;
   if (faultPin != UNUSED_PIN && !commonFaultPin)
     fault = invertFault ? isHIGH(fastFaultPin) : isLOW(fastFaultPin);
-  bool over = fault || (currentPin != UNUSED_PIN && guardLastRaw >= rawCurrentTripValue);
+  // Current is ignored during inrush. tripValue is the limit the main
+  // loop has in force, which is raised during ack, join and PROGBOOST.
+  bool over = fault || (currentPin != UNUSED_PIN && (long)(now - guardArmAt) >= 0
+			&& guardLastRaw >= tripValue);
   if (over) {
     guardAcc += OVERCURRENT_TICK_US;
     guardEventFault = fault;
@@ -332,7 +333,7 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
 
 // Invert a reverse loop track if that was not done just before.
 bool IRAM_ATTR MotorDriver::guardTryInvert(unsigned long now) {
-  if (!guardActive || !guardAuto || (long)(now - guardArmAt) < 0)
+  if (!guardActive || !guardAuto)
     return false;
   if (now - guardLastInvert < GUARD_REINVERT_US)
     return false;
@@ -679,7 +680,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       setPower(POWERMODE::ALERT);
       if ((trackMode & TRACK_MODIFIER_AUTO) && (trackMode & (TRACK_MODE_MAIN|TRACK_MODE_EXT|TRACK_MODE_BOOST))
 #ifdef FAST_OVERCURRENT_GUARD
-	  && !guardArmed() // then the guard interrupt does the inverting
+	  && !guardActive // then the guard interrupt does the inverting
 #endif
 	  ){
 	DIAG(F("TRACK %c INVERT"), trackno + 'A');
