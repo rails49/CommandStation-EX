@@ -153,8 +153,9 @@ void TrackManager::Setup(const FSH * shieldname,
 //   itself). After that all tracks get GUARD_SETTLE_US to recover.
 // - If inverting does not help, a track which has been overloaded for
 //   OVERCURRENT_FAST_TRIP_US gets its power cut.
-// The guard ignores a track for OVERCURRENT_INRUSH_MS after power on,
-// that is left to checkPowerOverload() which also picks up the
+// The guard watches the fault pin from power on, the current only
+// OVERCURRENT_INRUSH_MS after power on (also after each retry), as
+// decoders charge their capacitors. checkPowerOverload() picks up the
 // events of the guard and does the messages and the retry logic.
 void IRAM_ATTR TrackManager::guardISR() {
   static byte adcTrack = 0;
@@ -162,6 +163,7 @@ void IRAM_ATTR TrackManager::guardISR() {
   bool over[MAX_TRACKS];
   bool anyOver = false;
   bool autoOver = false;
+  bool mainOver = false; // a track that can border a reverse loop, not PROG
 
   // next track to read the ADC of
   for (byte i = 0; i <= lastTrack; i++) {
@@ -174,13 +176,14 @@ void IRAM_ATTR TrackManager::guardISR() {
     if (over[t]) {
       anyOver = true;
       if (track[t]->guardAuto) autoOver = true;
+      else if (!(track[t]->getMode() & TRACK_MODE_PROG)) mainOver = true;
     }
   }
   if (!anyOver) return;
 
   bool inverted = false;
   FOR_EACH_TRACK(t) {
-    if (track[t] && track[t]->guardAuto && (over[t] || !autoOver))
+    if (track[t] && track[t]->guardAuto && (over[t] || (!autoOver && mainOver)))
       inverted |= track[t]->guardTryInvert(now);
   }
   if (inverted) {
