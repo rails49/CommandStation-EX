@@ -28,6 +28,7 @@
 #include "DCCWaveform.h"
 #include "DCCTimer.h"
 #include "DIAG.h"
+#include "TrackManager.h"
 #include "EXRAIL2.h"
 #ifdef FAST_OVERCURRENT_GUARD
 #include <soc/gpio_struct.h>
@@ -605,7 +606,8 @@ void  MotorDriver::getFastPin(const FSH* type,int pin, bool input, FASTPIN & res
 // If only the fault pin is active, timeout is
 // POWER_SAMPLE_IGNORE_FAULT_LOW (100ms)
 // If only overcurrent is detected, timeout is
-// POWER_SAMPLE_IGNORE_CURRENT (100ms)
+// POWER_SAMPLE_IGNORE_CURRENT (100ms). On a PROG track that is
+// not joined only the time over the limit counts (overTime).
 // If fault pin and overcurrent are active, timeout is
 // POWER_SAMPLE_IGNORE_FAULT_HIGH (5ms)
 // Transition to OVERLOAD turns off power to the affected
@@ -703,8 +705,13 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
     bool notFromOverload = (lastPowerMode != POWERMODE::OVERLOAD);
     bool powerModeChange = (powerMode != lastPowerMode);
     unsigned long now = micros();
-    if (powerModeChange)
+    if (powerModeChange) {
       lastBadSample = now;
+      lastAlertSample = now;
+      overTime = 0;
+    }
+    unsigned long sinceLastSample = now - lastAlertSample;
+    lastAlertSample = now;
     lastPowerMode = POWERMODE::ALERT;
     // check how long we have been in this state
     unsigned long mslpc = microsSinceLastPowerChange(POWERMODE::ALERT);
@@ -724,7 +731,13 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
     }
     if (checkCurrent(useProgLimit)) {
       lastBadSample = now;
-      if (mslpc < POWER_SAMPLE_IGNORE_CURRENT) {
+      overTime += sinceLastSample;
+      // NMRA S-9.2.3 limits a programming track to 250mA sustained for
+      // more than 100ms. An ack can be a train of short pulses above that
+      // with gaps shorter than POWER_SAMPLE_ALERT_GOOD, so on a PROG track
+      // only the time over the limit counts. A joined track is a main.
+      bool prog = (trackMode & TRACK_MODE_PROG) && !TrackManager::isJoined();
+      if ((prog ? overTime : mslpc) < POWER_SAMPLE_IGNORE_CURRENT) {
 	if (powerModeChange) {
 	  unsigned int mA=raw2mA(lastCurrent);
 	  DIAG(F("TRACK %c CURRENT (%M ignore) %dmA"), trackno + 'A', POWER_SAMPLE_IGNORE_CURRENT, mA);
