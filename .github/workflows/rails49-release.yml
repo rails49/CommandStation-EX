@@ -5,6 +5,10 @@
 # ESP32 core, merges the four images into one, attaches it to a release and
 # pushes an image carrying it. rails49/control pins that image by tag and runs
 # it to flash the station over USB.
+#
+# The release is titled with the tag's message, less a leading "<tag>: ". A
+# tag without "-test" deletes every release whose tag has "-test" in it; their
+# git tags and images stay.
 name: rails49 firmware
 
 on:
@@ -69,13 +73,18 @@ jobs:
           name: firmware
           path: firmware.bin
 
+      # checkout leaves the tag without its message, so fetch it again.
       - name: Release
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          subject=$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")
+          title=${subject#"$GITHUB_REF_NAME: "}
+          [ -n "$title" ] || title=$GITHUB_REF_NAME
           gh release create "$GITHUB_REF_NAME" firmware.bin \
-            --title "$GITHUB_REF_NAME" \
+            --title "$title" \
             --notes "EX-CSB1 with EX8874, built from config.rails49.h.
 
           Flash the whole image at offset 0x0:
@@ -85,6 +94,15 @@ jobs:
                 --flash_mode dio --flash_freq 80m --flash_size 4MB 0x0 firmware.bin
 
           Or pull \`$IMAGE:$GITHUB_REF_NAME\`, which carries this image and esptool."
+
+      - name: Delete the test releases
+        if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-test')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list -R "$GITHUB_REPOSITORY" --limit 1000 --json tagName \
+            --jq '.[].tagName | select(contains("-test"))' |
+            xargs -r -n1 gh release delete -R "$GITHUB_REPOSITORY" --yes
 
       - name: Push the flashing image
         if: startsWith(github.ref, 'refs/tags/')
