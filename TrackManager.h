@@ -116,6 +116,9 @@ class TrackManager {
     static int8_t lastTrack;
     static byte nextCycleTrack;
     static void applyDCSpeed(byte t);
+#ifdef FAST_OVERCURRENT_GUARD
+    static void guardISR();
+#endif
 
     static int16_t trackDCAddr[MAX_TRACKS];  // dc address if TRACK_MODE_DC
     static int16_t trackPwrMA[MAX_TRACKS];      // for <JL ..> command

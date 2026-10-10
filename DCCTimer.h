@@ -126,6 +126,10 @@ public:
   // it was called from ISR because for some implementations that
   // makes a difference.
   static int read(uint8_t pin, bool fromISR=false);
+#ifdef ARDUINO_ARCH_ESP32
+  // read from the fast overcurrent guard interrupt, -1 if ADC busy
+  static int readFromGuard(uint8_t pin);
+#endif
   // returns possible max value that the ADC can return
   static int16_t ADCmax();
 private:

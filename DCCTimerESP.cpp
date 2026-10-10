@@ -302,6 +302,13 @@ void DCCTimer::DCCEXInrushControlOn(uint8_t pin, int duty, bool inverted) {
   ledcWrite(0, duty);
 }
 
+// ADC1 is read from the main loop and from the fast overcurrent guard
+// interrupt (see TrackManager::guardISR). The mux keeps a conversion from
+// being interrupted halfway. adcInitBusy keeps the interrupt away while
+// the IDF driver, which can not run inside a critical section, uses the ADC.
+static portMUX_TYPE adcMux = portMUX_INITIALIZER_UNLOCKED;
+static volatile bool adcInitBusy = false;
+
 int ADCee::init(uint8_t pin) {
   pinMode(pin, ANALOG);
   adc1_config_width(ADC_WIDTH_BIT_12);
@@ -311,7 +318,10 @@ int ADCee::init(uint8_t pin) {
 #else
   adc1_config_channel_atten(pinToADC1Channel(pin),ADC_ATTEN_DB_11);
 #endif
-  return adc1_get_raw(pinToADC1Channel(pin));
+  adcInitBusy = true;
+  int value = adc1_get_raw(pinToADC1Channel(pin));
+  adcInitBusy = false;
+  return value;
 }
 int16_t ADCee::ADCmax() {
   return 4095;
@@ -320,7 +330,23 @@ int16_t ADCee::ADCmax() {
  * Read function ADCee::read(pin) to get value instead of analogRead(pin)
  */
 int ADCee::read(uint8_t pin, bool fromISR) {
-  return local_adc1_get_raw(pinToADC1Channel(pin));
+  (void)fromISR; // on ESP32 this is called from the main loop even if fromISR is set
+  portENTER_CRITICAL(&adcMux);
+  int value = local_adc1_get_raw(pinToADC1Channel(pin));
+  portEXIT_CRITICAL(&adcMux);
+  return value;
+}
+/*
+ * Read function for the fast overcurrent guard interrupt only.
+ * Returns -1 if the ADC is busy.
+ */
+int IRAM_ATTR ADCee::readFromGuard(uint8_t pin) {
+  if (adcInitBusy)
+    return -1;
+  portENTER_CRITICAL_ISR(&adcMux);
+  int value = local_adc1_get_raw(pinToADC1Channel(pin));
+  portEXIT_CRITICAL_ISR(&adcMux);
+  return value;
 }
 /*
  * Scan function that is called from interrupt
