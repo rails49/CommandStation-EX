@@ -263,7 +263,10 @@ void MotorDriver::setPower(POWERMODE mode) {
     }
 
     IODevice::write(powerPin,invertPower ? LOW : HIGH);
-    if (isProgTrack)
+    // Resets are counted from power on. ON to ALERT and back is not a
+    // power on: clearing then would count the repeats of a verify
+    // packet as resets and send the next one while the decoder acks.
+    if (isProgTrack && powerMode != POWERMODE::ON && powerMode != POWERMODE::ALERT)
       DCCWaveform::progTrack.clearResets();
   }
   else {
