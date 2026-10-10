@@ -155,8 +155,9 @@ void TrackManager::Setup(const FSH * shieldname,
 //   OVERCURRENT_FAST_TRIP_US gets its power cut.
 // The guard watches the fault pin from power on, the current only
 // OVERCURRENT_INRUSH_MS after power on (also after each retry), as
-// decoders charge their capacitors. checkPowerOverload() picks up the
-// events of the guard and does the messages and the retry logic.
+// decoders charge their capacitors. On a PROG track it watches only the
+// fault pin. checkPowerOverload() picks up the events of the guard and
+// does the messages and the retry logic.
 void IRAM_ATTR TrackManager::guardISR() {
   static byte adcTrack = 0;
   unsigned long now = micros();

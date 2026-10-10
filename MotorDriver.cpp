@@ -318,8 +318,11 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
     fault = invertFault ? isHIGH(fastFaultPin) : isLOW(fastFaultPin);
   // Current is ignored during inrush. tripValue is the limit the main
   // loop has in force, which is raised during ack, join and PROGBOOST.
-  bool over = fault || (currentPin != UNUSED_PIN && (long)(now - guardArmAt) >= 0
-			&& guardLastRaw >= tripValue);
+  // The current of a PROG track is left to the main loop: NMRA S-9.2.3
+  // limits it to 250mA sustained for more than 100ms, and an ack pulse
+  // may be higher for 6ms.
+  bool over = fault || (currentPin != UNUSED_PIN && !guardProg
+			&& (long)(now - guardArmAt) >= 0 && guardLastRaw >= tripValue);
   if (over) {
     guardAcc += OVERCURRENT_TICK_US;
     guardEventFault = fault;
