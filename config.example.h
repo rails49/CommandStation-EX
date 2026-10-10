@@ -83,9 +83,9 @@ The configuration file for DCC-EX Command Station
 //
 // ESP32 only: a timer interrupt watches the fault pins from power on, and
 // the current after the inrush time, and switches a DCC track off once it
-// has been overloaded for OVERCURRENT_FAST_TRIP_US (default 1000). This
-// includes the programming track. Reverse loop (AUTO) tracks are
-// inverted on the first sign of a short. If you see trips while running
+// has been overloaded for OVERCURRENT_FAST_TRIP_US (default 1000). On the
+// programming track it watches the fault pin only. Reverse loop (AUTO)
+// tracks are inverted on the first sign of a short. If you see trips while running
 // (not at power on), raise OVERCURRENT_FAST_TRIP_US or disable the guard.
 // #define OVERCURRENT_FAST_TRIP_US 1000
 // #define DISABLE_FAST_OVERCURRENT

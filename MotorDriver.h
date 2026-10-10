@@ -68,7 +68,8 @@ enum TRACK_MODE : byte {
 // and cuts power from interrupt context once a track has been overloaded
 // for OVERCURRENT_FAST_TRIP_US, instead of waiting for the main loop.
 // It watches the fault pin from power on, and the current from
-// OVERCURRENT_INRUSH_MS after power on. Disable it with
+// OVERCURRENT_INRUSH_MS after power on. On a PROG track it watches the
+// fault pin only. Disable it with
 // DISABLE_FAST_OVERCURRENT. See TrackManager::guardISR().
 #if defined(ARDUINO_ARCH_ESP32) && !defined(DISABLE_FAST_OVERCURRENT)
 #define FAST_OVERCURRENT_GUARD
@@ -324,6 +325,7 @@ class MotorDriver {
     invertOutput(trackMode & TRACK_MODIFIER_INV);
 #ifdef FAST_OVERCURRENT_GUARD
     guardAuto = trackMode & TRACK_MODIFIER_AUTO;
+    guardProg = trackMode & TRACK_MODE_PROG;
     guardActive = guardActive && guardEligible();
 #endif
   };
@@ -373,6 +375,7 @@ class MotorDriver {
     void guardCut();
     volatile bool guardActive = false;         // power is on and track is a guarded DCC track
     volatile bool guardAuto = false;           // track is a reverse loop (AUTO) track
+    volatile bool guardProg = false;           // track is a PROG track, guard ignores its current
     volatile unsigned long guardArmAt = 0;     // guard ignores the current until then (inrush)
     volatile unsigned long guardHoldUntil = 0; // guard ignores overcurrent until then (after invert)
     volatile unsigned long guardLastInvert = 0;
