@@ -436,6 +436,8 @@ class MotorDriver {
     POWERMODE lastPowerMode;
     unsigned long lastPowerChange[4];         // timestamp in microseconds
     unsigned long lastBadSample;              // timestamp in microseconds
+    unsigned long lastAlertSample;            // timestamp in microseconds
+    unsigned long overTime;                   // microseconds over the limit in this ALERT
     // used to sync restore time when common Fault pin detected
     static unsigned long globalOverloadStart; // timestamp in microseconds
     int progTripValue;
