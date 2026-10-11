@@ -250,7 +250,8 @@ void MotorDriver::setPower(POWERMODE mode) {
     // Power comes on. A host power-on and a retry after a Fault get the
     // Inrush Window, a retry into a current Overload does not: a soft
     // short would be fed for the whole window on every retry.
-    noInrushWindow = powerMode == POWERMODE::OVERLOAD && overloadByCurrent;
+    noInrushWindow = !guardInrushWindow(powerMode == POWERMODE::OVERLOAD,
+                                        overloadByCurrent);
   } else if (mode == POWERMODE::ON || !on) {
     noInrushWindow = false;
   }
