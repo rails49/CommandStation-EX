@@ -475,8 +475,10 @@ bool TrackManager::setTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr
     }
 #endif
 #endif
-    // Turn off power if we changed the mode of this track
-    if (mode != oldmode && offAtChange) {
+    // Turn off power if we changed the base mode of this track. A change
+    // of INV or AUTO alone, or a repeat, leaves it on (ADR-0005).
+    const byte modifiers = TRACK_MODIFIER_INV | TRACK_MODIFIER_AUTO;
+    if ((mode & ~modifiers) != (oldmode & ~modifiers) && offAtChange) {
       track[trackToSet]->setPower(POWERMODE::OFF);
     }
     streamTrackState(NULL,trackToSet);
@@ -512,6 +514,8 @@ bool TrackManager::parseEqualSign(Print *stream, int16_t params, int16_t p[])
         return setTrackMode(p[0],TRACK_MODE_MAIN_INV);
     if (params==2  && p[1]=="MAIN_AUTO"_hk)                // <= id MAIN_AUTO>
         return setTrackMode(p[0],TRACK_MODE_MAIN_AUTO);
+    if (params==2  && p[1]=="MAIN_AUTO_INV"_hk)            // <= id MAIN_AUTO_INV>
+        return setTrackMode(p[0],TRACK_MODE_MAIN_AUTO_INV);
     
 #ifndef DISABLE_PROG
     if (params==2  && p[1]=="PROG"_hk)                     // <= id PROG>
@@ -554,8 +558,8 @@ const FSH* TrackManager::getModeName(TRACK_MODE tm) {
   const FSH *modename=F("---");
   
   if (tm & TRACK_MODE_MAIN) {
-    if(tm & TRACK_MODIFIER_AUTO)
-      modename=F("MAIN A");
+    if (tm & TRACK_MODIFIER_AUTO)
+      modename=(tm & TRACK_MODIFIER_INV) ? F("MAIN A I") : F("MAIN A");
     else if (tm & TRACK_MODIFIER_INV)
       modename=F("MAIN I");
     else
@@ -586,12 +590,21 @@ const FSH* TrackManager::getModeName(TRACK_MODE tm) {
   return modename;
 }
 
+// The mode as reported. On a MAIN track INV is the Polarity the output
+// has now, which a Reversal changes, not the one the host set (ADR-0005).
+TRACK_MODE TrackManager::reportedMode(byte t) {
+  TRACK_MODE tm = track[t]->getMode();
+  if (tm & TRACK_MODE_MAIN)
+    tm = (TRACK_MODE)((tm & ~TRACK_MODIFIER_INV) | (track[t]->isInverted() ? TRACK_MODIFIER_INV : 0));
+  return tm;
+}
+
 // null stream means send to commandDistributor for broadcast
 void TrackManager::streamTrackState(Print* stream, byte t) {
   const FSH *format;
   
   if (track[t]==NULL) return;
-  TRACK_MODE tm = track[t]->getMode();
+  TRACK_MODE tm = reportedMode(t);
   if (tm & TRACK_MODE_DC)
     format=F("<= %c %S %d>\n");
   else
@@ -756,7 +769,7 @@ void TrackManager::reportCurrentLCD(uint8_t display, byte row) {
   int16_t trackPwrTotalMA = 0;
   FOR_EACH_TRACK(t) {
     bool pstate = TrackManager::isPowerOn(t);  // checks if power is on or off
-    TRACK_MODE tMode=(TrackManager::getMode(t)); // gets to current power mode
+    TRACK_MODE tMode=reportedMode(t); // gets to current power mode
     int16_t DCAddr=(TrackManager::returnDCAddr(t));
 
       if (pstate) {                                                 // if power is on do this section
