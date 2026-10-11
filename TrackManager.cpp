@@ -194,8 +194,14 @@ void IRAM_ATTR TrackManager::guardISR() {
 	track[t]->guardHoldUntil = now + MotorDriver::GUARD_SETTLE_US;
 	track[t]->guardAcc = 0;
 	track[t]->guardInvertAt = now;
-	track[t]->guardFaultFor = -1;
 	track[t]->guardFaultTiming = true;
+	if (track[t]->guardTracing == 0) {
+	  track[t]->guardTraceStart = now;
+	  track[t]->guardTraceN = 0;
+	  if (track[t]->guardTraceFault)
+	    track[t]->guardTrace('+', now);
+	  track[t]->guardTracing = 1;
+	}
       }
     }
     return;

@@ -251,6 +251,10 @@ void MotorDriver::setPower(POWERMODE mode) {
     guardArmAt = now + OVERCURRENT_INRUSH_MS * 1000UL;
     guardHoldUntil = now;
     guardFaultTiming = false;
+    if (guardTracing == 1) { // cut by the main loop, the trace is lost
+      inrushTraceN = 0;
+      guardTracing = 0;
+    }
     guardAcc = 0;
     guardLastRaw = 0;
   }
@@ -320,16 +324,20 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
   bool fault = false;
   if (faultPin != UNUSED_PIN && !commonFaultPin)
     fault = invertFault ? isHIGH(fastFaultPin) : isLOW(fastFaultPin);
-  if (guardFaultTiming) { // after an invert the fault pin is timed, not acted on
-    if (now - guardInvertAt < GUARD_FAULT_SETTLE_US) {
-      if (fault)
-	guardFaultFor = now - guardInvertAt;
-      fault = false;
-    } else {
-      guardFaultTiming = false;
-      if (guardFaultFor >= 0)
-	guardEvent |= GUARD_FAULT_TIMED;
+  if (guardTracing == 1) {
+    if (now - guardTraceStart >= GUARD_TRACE_US) {
+      guardTracing = 2;
+      guardEvent |= GUARD_TRACED;
+    } else if (fault != guardTraceFault) {
+      guardTrace(fault ? '+' : '-', now);
     }
+  }
+  guardTraceFault = fault;
+  if (guardFaultTiming) { // after an invert the fault pin is ignored
+    if (now - guardInvertAt < GUARD_FAULT_SETTLE_US)
+      fault = false;
+    else
+      guardFaultTiming = false;
   }
   if ((long)(now - guardHoldUntil) < 0)
     return false;
@@ -360,7 +368,17 @@ bool IRAM_ATTR MotorDriver::guardTryInvert(unsigned long now) {
   guardLastInvert = now;
   invertOutput();
   guardEvent |= GUARD_INVERTED;
+  if (guardTracing == 1)
+    guardTrace('I', now);
   return true;
+}
+
+void IRAM_ATTR MotorDriver::guardTrace(char what, unsigned long now) {
+  if (guardTraceN < GUARD_TRACE_MAX) {
+    guardTraceWhat[guardTraceN] = what;
+    guardTraceAt[guardTraceN] = now - guardTraceStart;
+    guardTraceN++;
+  }
 }
 
 // Switch off power from interrupt context. This does what
@@ -375,6 +393,11 @@ void IRAM_ATTR MotorDriver::guardCut() {
   guardActive = false;
   guardEventRaw = guardLastRaw;
   guardEvent |= GUARD_TRIPPED;
+  if (guardTracing == 1) {
+    guardTrace('X', micros());
+    guardTracing = 2;
+    guardEvent |= GUARD_TRACED;
+  }
 }
 #endif
 
@@ -544,6 +567,16 @@ void MotorDriver::throttleInrush(bool on) {
     return;
   if ( !(trackMode & (TRACK_MODE_MAIN | TRACK_MODE_PROG | TRACK_MODE_EXT | TRACK_MODE_BOOST)))
     return;
+#ifdef FAST_OVERCURRENT_GUARD
+  if (on != inrushOn) {
+    inrushOn = on;
+    if (guardTracing == 1 && inrushTraceN < INRUSH_TRACE_MAX) {
+      inrushTraceWhat[inrushTraceN] = on ? 'B' : 'b';
+      inrushTraceAt[inrushTraceN] = micros() - guardTraceStart;
+      inrushTraceN++;
+    }
+  }
+#endif
   byte duty = on ? 207 : 0; // duty of 81% at 62500Hz this gives pauses of 3usec
 #if defined(ARDUINO_ARCH_ESP32)
   if(on) {
@@ -687,8 +720,19 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
   uint32_t ev = __atomic_exchange_n(&guardEvent, 0, __ATOMIC_SEQ_CST);
   if (ev & GUARD_INVERTED)
     DIAG(F("TRACK %c INVERT (fast)"), trackno + 'A');
-  if (ev & GUARD_FAULT_TIMED)
-    DIAG(F("TRACK %c FAULT PIN on until %lus after invert"), trackno + 'A', guardFaultFor);
+  if (ev & GUARD_TRACED) {
+    char buf[160];
+    int len = 0;
+    buf[0] = '\0';
+    for (byte i = 0; i < guardTraceN; i++)
+      len += snprintf(buf + len, sizeof(buf) - len, " %c%ld", guardTraceWhat[i], guardTraceAt[i]);
+    for (byte i = 0; i < inrushTraceN; i++)
+      len += snprintf(buf + len, sizeof(buf) - len, " %c%ld", inrushTraceWhat[i], inrushTraceAt[i]);
+    if (len > 0)
+      DIAG(F("TRACK %c AFTER INVERT (us):%s"), trackno + 'A', buf);
+    inrushTraceN = 0;
+    guardTracing = 0;
+  }
   if (ev & GUARD_TRIPPED) {
     // power pin is already off, now get the state machine to agree
     DIAG(F("TRACK %c FAST OVERLOAD %dmA%S. Pause %4M"), trackno + 'A',

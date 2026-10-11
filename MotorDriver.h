@@ -363,14 +363,18 @@ class MotorDriver {
     // checkPowerOverload() in the main loop.
     static const uint32_t GUARD_INVERTED = 1;
     static const uint32_t GUARD_TRIPPED = 2;
-    static const uint32_t GUARD_FAULT_TIMED = 4;
+    static const uint32_t GUARD_TRACED = 4;
     // After an invert all tracks ignore their current this long.
     static const unsigned long GUARD_SETTLE_US = 4000UL;
     // After an invert all tracks ignore their fault pin this long. Driver
     // chips that switch off by themselves keep it active while they retry
     // (DRV8874: 2ms), and on a reverse loop short at times for longer.
-    // The guard reports for how long it was active.
     static const unsigned long GUARD_FAULT_SETTLE_US = 20000UL;
+    // After an invert each track records its fault pin edges, inverts and
+    // cut (guard) and its brake PWM (main loop) for this long.
+    static const unsigned long GUARD_TRACE_US = 60000UL;
+    static const byte GUARD_TRACE_MAX = 12;
+    static const byte INRUSH_TRACE_MAX = 4;
     // A reverse loop track is not inverted again within this time.
     // Longer than GUARD_FAULT_SETTLE_US.
     static const unsigned long GUARD_REINVERT_US = 40000UL;
@@ -386,7 +390,17 @@ class MotorDriver {
     volatile unsigned long guardLastInvert = 0;
     volatile bool guardFaultTiming = false;    // within GUARD_FAULT_SETTLE_US of an invert
     volatile unsigned long guardInvertAt = 0;  // time of the last invert of any track
-    volatile long guardFaultFor = -1;          // fault pin last active this long after it, -1 not at all
+    void guardTrace(char what, unsigned long now);
+    volatile byte guardTracing = 0;            // 0 idle, 1 recording, 2 done and not printed yet
+    volatile unsigned long guardTraceStart = 0;
+    volatile bool guardTraceFault = false;     // fault pin at the last poll
+    volatile byte guardTraceN = 0;
+    volatile char guardTraceWhat[GUARD_TRACE_MAX]; // '+' fault on, '-' fault off, 'I' invert, 'X' cut
+    volatile long guardTraceAt[GUARD_TRACE_MAX];   // microseconds after guardTraceStart
+    bool inrushOn = false;
+    byte inrushTraceN = 0;
+    char inrushTraceWhat[INRUSH_TRACE_MAX];    // 'B' brake PWM on, 'b' off
+    long inrushTraceAt[INRUSH_TRACE_MAX];
     volatile long guardAcc = 0;               // microseconds of overcurrent, leaky
     volatile int guardLastRaw = 0;             // last ADC sample, offset removed
     volatile uint32_t guardEvent = 0;
