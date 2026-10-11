@@ -111,6 +111,7 @@ void  DCCACK::Setup(int cv, byte byteValueOrBitnum, ackOp const program[], ACK_C
   ackManagerCv = cv;
   ackManagerProg = program;
   ackManagerProgStart = program;
+  TrackManager::refreshTripValues(); // the ack bypasses the prog limit
   ackManagerRetry = ackRetry;
   ackManagerByte = byteValueOrBitnum;
   ackManagerByteVerify = byteValueOrBitnum;
@@ -450,6 +451,7 @@ void DCCACK::callback(int value) {
           }
 
           ackManagerProg=NULL;  // no more steps to execute
+          TrackManager::refreshTripValues();
           if (Diag::ACK) DIAG(F("Callback(%d)"),value);
           (ackManagerCallback)( value);
     }
