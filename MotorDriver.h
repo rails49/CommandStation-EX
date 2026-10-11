@@ -393,6 +393,7 @@ class MotorDriver {
     volatile unsigned long guardLastInvert = 0;
     volatile bool guardHasInverted = false;    // guardLastInvert is valid
     volatile long guardAcc = 0;                // microseconds of overcurrent, leaky
+    volatile uint8_t guardOverCount = 0;       // consecutive samples over the limit
     volatile int guardLastRaw = 0;             // last ADC sample, offset removed
     volatile uint32_t guardEvent = 0;
     volatile int guardEventRaw = 0;

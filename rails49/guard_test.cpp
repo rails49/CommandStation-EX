@@ -49,10 +49,24 @@ struct Station {
     in[t].armAt = now + inrushUs;
   }
 
-  // The ADC reads track t on the next tick.
+  // The ADC reads track t on the next tick. Until it reads it again, the
+  // Guard sees the same sample.
   void sample(int t, int raw) {
+    in[t].sampled = true;
     in[t].lastRaw = raw;
     in[t].currentOver = raw >= TRIP;
+  }
+
+  // As the round robin over four tracks does: a sample of t, then four
+  // ticks. Returns true if t was reversed on one of them.
+  bool sampleAndWait(int t, int raw) {
+    sample(t, raw);
+    bool any = false;
+    for (int i = 0; i < 4; i++) {
+      tick();
+      any |= reversed[t];
+    }
+    return any;
   }
 
   // One tick, then what the ISR keeps for the next.
@@ -62,6 +76,8 @@ struct Station {
       reversed[t] = out[t].reverse;
       cut[t] = out[t].cut;
       in[t].acc = out[t].acc;
+      in[t].overCount = out[t].overCount;
+      in[t].sampled = false;
       if (out[t].hold) in[t].holdUntil = now + times.settleUs;
       if (out[t].reverse) {
         in[t].hasReversed = true;
@@ -166,6 +182,56 @@ TEST(an_inactive_track_is_never_acted_on) {
   }
 }
 
+TEST(one_sample_over_does_not_reverse_an_auto_track) {
+  Station s;
+  EXPECT(!s.sampleAndWait(D, 5000));
+  EXPECT(!s.sampleAndWait(D, 500));
+  EXPECT(!s.in[D].hasReversed);
+}
+
+TEST(two_consecutive_samples_over_reverse_an_auto_track) {
+  Station s;
+  EXPECT(!s.sampleAndWait(D, 5000));
+  s.sample(D, 5000);
+  s.tick();
+  EXPECT(s.reversed[D]);
+  EXPECT(!s.reversed[C]);
+}
+
+TEST(a_sample_under_the_limit_resets_the_count) {
+  Station s;
+  EXPECT(!s.sampleAndWait(D, 5000));
+  EXPECT(!s.sampleAndWait(D, 500));
+  EXPECT(!s.sampleAndWait(D, 5000));
+  EXPECT(!s.sampleAndWait(D, 500));
+  EXPECT(!s.in[D].hasReversed);
+}
+
+TEST(one_sample_over_on_a_plain_track_reverses_no_loop) {
+  Station s;
+  EXPECT(!s.sampleAndWait(A, 5000));
+  EXPECT(!s.sampleAndWait(A, 500));
+  EXPECT(!s.in[C].hasReversed && !s.in[D].hasReversed);
+}
+
+TEST(two_samples_over_on_a_plain_track_reverse_a_loop) {
+  Station s;
+  s.sampleAndWait(A, 5000);
+  s.sample(A, 5000);
+  s.tick();
+  EXPECT(s.reversed[C] || s.reversed[D]);
+}
+
+TEST(a_sustained_soft_short_on_an_auto_track_reverses_before_the_cut) {
+  Station s;
+  s.in[C].active = false;
+  EXPECT(!s.sampleAndWait(D, 5000));
+  s.sample(D, 5000);
+  s.tick();
+  EXPECT(s.reversed[D]);
+  EXPECT(!s.cut[D]);
+}
+
 int main() {
   RUN(a_fault_on_an_auto_track_reverses_it_at_once);
   RUN(nothing_happens_during_the_hold_after_a_reversal);
@@ -175,6 +241,12 @@ int main() {
   RUN(current_on_a_prog_track_is_left_to_the_main_loop);
   RUN(a_fault_on_a_prog_track_is_an_overload_and_reverses_no_loop);
   RUN(an_inactive_track_is_never_acted_on);
+  RUN(one_sample_over_does_not_reverse_an_auto_track);
+  RUN(two_consecutive_samples_over_reverse_an_auto_track);
+  RUN(a_sample_under_the_limit_resets_the_count);
+  RUN(one_sample_over_on_a_plain_track_reverses_no_loop);
+  RUN(two_samples_over_on_a_plain_track_reverse_a_loop);
+  RUN(a_sustained_soft_short_on_an_auto_track_reverses_before_the_cut);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;

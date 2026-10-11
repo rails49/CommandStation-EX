@@ -33,6 +33,7 @@ struct GuardIn {
   bool isAuto = false;         // AUTO track, may be reversed
   bool isProg = false;         // PROG track, its current is left to the main loop
   bool fault = false;          // the fault pin is active
+  bool sampled = false;        // the ADC read this track on this tick
   bool currentOver = false;    // the last sample is at or over the trip value
   int lastRaw = 0;             // the last sample, raw counts, offset removed
   unsigned long armAt = 0;     // end of the Inrush Window: current ignored until then
@@ -40,6 +41,7 @@ struct GuardIn {
   bool hasReversed = false;    // lastReversal is valid
   unsigned long lastReversal = 0;
   long acc = 0;                // microseconds over, leaky
+  uint8_t overCount = 0;       // consecutive samples over the trip value
 };
 
 // What the ISR does to one track after this tick, and the state it keeps
@@ -49,6 +51,7 @@ struct GuardOut {
   bool cut = false;            // cut power, an Overload
   bool hold = false;           // start the settle hold now
   long acc = 0;
+  uint8_t overCount = 0;
 };
 
 struct GuardTimes {
