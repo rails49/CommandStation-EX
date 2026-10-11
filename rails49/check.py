@@ -198,16 +198,27 @@ def no_cut(st: Station, args):
 
 def overload_broadcast(st: Station, args):
     """An Overload is broadcast as a power state, entering and leaving."""
-    st.send(f"<1 {TRACK}>")
-    print(f"Short track {TRACK} now, for example with a coin across the rails,")
-    print(f"then remove the short. Collecting for {args.wait:.0f} s.")
-    lines = st.collect(args.wait)
+    lines = st.send(f"<1 {TRACK}>")
+    print(f"Short track {TRACK} now, a wire across its rails for a second,")
+    print(f"then remove it. Collecting for {args.wait:.0f} s.")
+    lines += st.collect(args.wait)
     for line in lines:
         print(f"    {line}")
+    # Each retry ends a period that began with an entry to OVERLOAD, so each
+    # period before a POWER RESTORE has its <p0 x> (ADR-0005).
+    periods = [[]]
+    for line in lines:
+        if f"TRACK {TRACK} POWER RESTORE" in line:
+            periods.append([])
+        else:
+            periods[-1].append(line)
     seen = power_lines(lines, TRACK)
     expect(f"<p0 {TRACK}>" in seen, f"<p0 {TRACK}> on the Overload")
-    expect(f"<p1 {TRACK}>" in seen[seen.index(f"<p0 {TRACK}>"):],
-           f"<p1 {TRACK}> after it, when the track is back on")
+    for n, period in enumerate(periods[:-1]):
+        expect(f"<p0 {TRACK}>" in power_lines(period, TRACK),
+               f"<p0 {TRACK}> before retry {n + 1}")
+    expect(seen[-1] == f"<p1 {TRACK}>",
+           f"<p1 {TRACK}> last, when the track is back on")
 
 
 def reversal_broadcast(st: Station, args):
