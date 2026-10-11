@@ -67,3 +67,25 @@ Pass: one `TRACK D INVERT (fast)` line, no `TRACK C INVERT (fast)` within the
 same second, the train runs on, and no `FAST OVERLOAD`. If the line is
 `TRACK C INVERT (fast)`, it must be followed within a few ms by
 `TRACK D INVERT (fast)`, and still no `FAST OVERLOAD`.
+
+## 4. An Overload reads as off to the host, and as on when it is back
+
+A track the station cut for an Overload broadcasts `<p0 x>` on every entry
+to OVERLOAD, from the Guard or from the main loop, and `<p1 x>` when it is
+back on (ADR-0005, #16). Needs the user's OK to power the track.
+
+1. No train on D. `<= D MAIN_AUTO>`, then start
+   `uv run rails49/check.py overload-broadcast --wait 15`, which sends `<1 D>`.
+2. When it asks, hold a wire across D's rails for about a second, then
+   remove it.
+
+Pass: the check says `passed`. The lines show a `TRACK D INVERT (fast)` (D is
+AUTO; the Reversal does not help a wire), then `TRACK D FAST OVERLOAD` and
+`<p0 D>` before the first `TRACK D POWER RESTORE`, another `<p0 D>` after
+each retry the wire was still there, and after the wire is gone
+`TRACK D NORMAL` and `<p1 D>`. A retry that comes back clean prints no
+power line of its own, only the `<p1 D>` once it is back on.
+
+Fail: no `<p0 D>` after an OVERLOAD line, or no `<p1 D>` at the end.
+
+The lines go into the PR.
