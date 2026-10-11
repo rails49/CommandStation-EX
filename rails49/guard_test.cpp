@@ -232,6 +232,63 @@ TEST(a_sustained_soft_short_on_an_auto_track_reverses_before_the_cut) {
   EXPECT(!s.cut[D]);
 }
 
+TEST(a_fault_on_a_plain_track_reverses_the_loop_with_the_higher_sample) {
+  Station s;
+  s.sampleAndWait(C, 300);
+  s.sampleAndWait(D, 700);
+  s.in[A].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+  EXPECT(!s.reversed[C]);
+}
+
+TEST(on_a_tie_the_lower_track_letter_reverses) {
+  Station s;
+  s.sampleAndWait(C, 500);
+  s.sampleAndWait(D, 500);
+  s.in[A].fault = true;
+  s.tick();
+  EXPECT(s.reversed[C]);
+  EXPECT(!s.reversed[D]);
+}
+
+TEST(the_other_loop_reverses_if_the_fault_persists_past_the_hold) {
+  Station s;
+  s.sampleAndWait(C, 300);
+  s.sampleAndWait(D, 700);
+  s.in[A].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+  // the hold, then C, and no Overload on the way
+  EXPECT(s.ticksUntil(&Station::reversed, C, 100) == 40);
+  EXPECT(!s.in[A].hasReversed && s.in[A].active);
+  EXPECT(!s.reversed[D]);
+}
+
+TEST(a_wrong_first_guess_still_ends_in_a_reversal_not_a_cut) {
+  Station s;
+  s.sampleAndWait(D, 700);
+  s.in[A].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+  s.ticksUntil(&Station::reversed, C, 100);
+  s.in[A].fault = false; // C was the loop with the loco on its gap
+  for (int i = 0; i < 400; i++) {
+    s.tick();
+    EXPECT(!s.anyAction());
+  }
+}
+
+TEST(an_auto_track_that_is_itself_over_reverses_whatever_the_plain_track_sees) {
+  Station s;
+  s.sampleAndWait(C, 900);
+  s.in[A].fault = true;
+  s.in[D].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+  EXPECT(!s.reversed[C]);
+}
+
 int main() {
   RUN(a_fault_on_an_auto_track_reverses_it_at_once);
   RUN(nothing_happens_during_the_hold_after_a_reversal);
@@ -247,6 +304,11 @@ int main() {
   RUN(one_sample_over_on_a_plain_track_reverses_no_loop);
   RUN(two_samples_over_on_a_plain_track_reverse_a_loop);
   RUN(a_sustained_soft_short_on_an_auto_track_reverses_before_the_cut);
+  RUN(a_fault_on_a_plain_track_reverses_the_loop_with_the_higher_sample);
+  RUN(on_a_tie_the_lower_track_letter_reverses);
+  RUN(the_other_loop_reverses_if_the_fault_persists_past_the_hold);
+  RUN(a_wrong_first_guess_still_ends_in_a_reversal_not_a_cut);
+  RUN(an_auto_track_that_is_itself_over_reverses_whatever_the_plain_track_sees);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;
