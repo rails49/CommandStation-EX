@@ -29,6 +29,7 @@
 #include "DCCTimer.h"
 #include "DIAG.h"
 #include "TrackManager.h"
+#include "CommandDistributor.h"
 #include "EXRAIL2.h"
 #ifdef FAST_OVERCURRENT_GUARD
 #include <soc/gpio_struct.h>
@@ -689,7 +690,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 	 power_sample_overload_wait);
     throttleInrush(false);
     if (powerMode == POWERMODE::ON || powerMode == POWERMODE::ALERT)
-      setPower(POWERMODE::OVERLOAD);
+      enterOverload();
     return;
   }
 #endif
@@ -698,6 +699,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 
   case POWERMODE::OFF: {
     lastPowerMode = POWERMODE::OFF;
+    overloadBroadcast = false;
     power_sample_overload_wait = POWER_SAMPLE_OVERLOAD_WAIT;
     currentSum = 0;
     currentSamples = 0;
@@ -706,6 +708,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 
   case POWERMODE::ON: {
     lastPowerMode = POWERMODE::ON;
+    overloadBroadcast = false; // also when the host powered it on
     bool cF = checkFault();
     bool cC = checkCurrent(useProgLimit);
     if(cF || cC ) {
@@ -762,7 +765,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       }
       DIAG(F("TRACK %c FAULT PIN detected after %4M. Pause %4M)"), trackno + 'A', mslpc, power_sample_overload_wait);
       throttleInrush(false);
-      setPower(POWERMODE::OVERLOAD);
+      enterOverload();
       break;
     }
     if (checkCurrent(useProgLimit)) {
@@ -785,7 +788,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       DIAG(F("TRACK %c POWER OVERLOAD %4dmA (max %4dmA) detected after %4M. Pause %4M"),
 	   trackno + 'A', mA, maxmA, mslpc, power_sample_overload_wait);
       throttleInrush(false);
-      setPower(POWERMODE::OVERLOAD);
+      enterOverload();
       break;
     }
     // all well
@@ -797,6 +800,10 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       }
       throttleInrush(false);
       setPower(POWERMODE::ON);
+      if (overloadBroadcast) { // back on after an Overload: <p1 x>
+	overloadBroadcast = false;
+	CommandDistributor::broadcastPower();
+      }
       break;
     }
     if (goodtime > POWER_SAMPLE_ALERT_GOOD/2) {
@@ -827,4 +834,12 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
   default:
     break;
   }
+}
+
+// Cut power for an Overload and tell every client: <p0 x>, on every
+// entry including retries, so the host stops treating the track as on.
+void MotorDriver::enterOverload() {
+  setPower(POWERMODE::OVERLOAD);
+  overloadBroadcast = true;
+  CommandDistributor::broadcastPower();
 }
