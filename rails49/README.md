@@ -60,6 +60,10 @@ by the read. It changes nothing on the layout:
 
     uv run rails49/check.py guard
 
+`trip-follows-jg` reads every track's trip value from `<D GUARD>`, best run
+first after a boot, then sets `<JG D 300>` (`--ma`) and expects D's trip value
+to read it at once, and restores D's previous limit.
+
 Every other subcommand is one check of #9 or #10; `--help` lists them. A check
 changes track modes and power, so run one only with the user's OK. A new check
 is one entry in the `CHECKS` table. `python3 -B -m unittest rails49/test_check.py`
