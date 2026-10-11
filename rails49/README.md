@@ -44,6 +44,19 @@ The layout server pulls the image and runs it against the serial device:
 - **Flashing resets the station**, which drops the rails and every throttle
   connected through the mirror. It is not a live operation.
 
+## Talking to the station: check.py
+
+`check.py` talks to the mirror port, by default `127.0.0.1:2560` on the layout
+box (`--host`, `--port`). It sends a command and prints every line that comes
+back for half a second (`--window`), broadcasts to all clients included:
+
+    uv run rails49/check.py send '<=>'
+
+Every other subcommand is one check of #9 or #10; `--help` lists them. A check
+changes track modes and power, so run one only with the user's OK. A new check
+is one entry in the `CHECKS` table. `python3 -B -m unittest rails49/test_check.py`
+tests the client against a fake mirror.
+
 ## Building by hand
 
     cp config.rails49.h config.h
