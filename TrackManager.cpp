@@ -148,11 +148,11 @@ void TrackManager::Setup(const FSH * shieldname,
 // conversion is slow), hands that to guardDecide() and does what it
 // returns. guardDecide() is a plain function, tested natively by
 // rails49/test-guard.sh. It decides:
-// - On the first sign of a short it inverts the reverse loop (AUTO)
-//   tracks: the one which is overloaded or, if a normal track is
-//   overloaded, all of them, as in a reverse loop short the driver of
-//   the normal track can be the one that sees it (or switches off by
-//   itself). After that all tracks get GUARD_SETTLE_US to recover.
+// - On a short it inverts the reverse loop (AUTO) tracks: the one
+//   which has a Fault or two consecutive samples over its limit or, if
+//   no AUTO track is over and a normal track has such a short, all of
+//   them, as in a reverse loop short the driver of the normal track can
+//   be the one that sees it (or switches off by itself). After that all tracks get GUARD_SETTLE_US to recover.
 // - If inverting does not help, a track which has been overloaded for
 //   OVERCURRENT_FAST_TRIP_US gets its power cut.
 // The guard watches the fault pin from power on, the current only

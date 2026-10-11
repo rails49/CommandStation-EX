@@ -252,6 +252,7 @@ void MotorDriver::setPower(POWERMODE mode) {
     guardArmAt = now + OVERCURRENT_INRUSH_MS * 1000UL;
     guardHoldUntil = now;
     guardAcc = 0;
+    guardOverCount = 0;
     guardLastRaw = 0;
   }
   guardActive = on && guardEligible();
@@ -310,6 +311,7 @@ bool MotorDriver::guardEligible() {
 void IRAM_ATTR MotorDriver::guardSense(bool readADC, GuardIn &in) {
   in.active = guardActive;
   in.acc = guardAcc;
+  in.overCount = guardOverCount;
   if (!guardActive)
     return;
   if (readADC && currentPin != UNUSED_PIN) { // keep sample fresh for when we arm
@@ -317,6 +319,7 @@ void IRAM_ATTR MotorDriver::guardSense(bool readADC, GuardIn &in) {
     if (raw >= 0) { // negative if ADC was busy
       raw -= senseOffset;
       guardLastRaw = raw < 0 ? -raw : raw;
+      in.sampled = true;
     }
   }
   in.isAuto = guardAuto;
@@ -337,6 +340,7 @@ void IRAM_ATTR MotorDriver::guardSense(bool readADC, GuardIn &in) {
 // guardSense(): do it.
 void IRAM_ATTR MotorDriver::guardAct(const GuardIn &in, const GuardOut &out, unsigned long now) {
   guardAcc = out.acc;
+  guardOverCount = out.overCount;
   if (out.hold)
     guardHoldUntil = now + GUARD_SETTLE_US;
   if (out.reverse) {
