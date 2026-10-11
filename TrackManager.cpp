@@ -132,6 +132,13 @@ void TrackManager::Setup(const FSH * shieldname,
   }
   DCC::setShieldName(shieldname);
 #ifdef FAST_OVERCURRENT_GUARD
+  // The Guard's interrupt is registered without ESP_INTR_FLAG_IRAM, so it
+  // does not run while the flash cache is off, that is while something
+  // writes flash. In this build nothing does: config.rails49.h has no wifi
+  // and no EEPROM. Add either and the Guard is off for each flash write.
+  // Then the interrupt has to become IRAM-safe: registered with the IRAM
+  // flag, and everything it calls and reads (guardTick, guardDecide,
+  // MotorDriver's guard state, the ADC read) in IRAM or DRAM.
   hw_timer_t *guardTimer = timerBegin(1, 80, true); // timer 1 at 1MHz, timer 0 is DCCTimer's
   timerAttachInterrupt(guardTimer, guardISR, true);
   timerAlarmWrite(guardTimer, OVERCURRENT_TICK_US, true);
