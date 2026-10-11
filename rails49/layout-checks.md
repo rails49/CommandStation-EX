@@ -30,23 +30,30 @@ Fail: `TRACK A FAST OVERLOAD ... FAULT PIN` right after `<1 A>`, repeated on
 each `TRACK A POWER RESTORE`. Then the fault-pin rule in the Inrush Window is
 reopened as a new spec, with these lines attached. Nothing else changes it.
 
-## 2. A retry into a soft short is cut after 1 ms
+## 2. A retry into a soft short is cut within a few ms
 
-A short below the driver's own trip level is seen only by current. A retry
-after such an Overload gets no Inrush Window.
+A short below the driver's own trip level is seen only by current. A host
+power-on gets the Inrush Window, a retry after such an Overload does not
+(ADR-0006, #20). Needs the user's OK to power the track.
 
-1. Set a guarded track's limit low enough that a resistor exceeds it but the
-   driver does not trip, for example `<JG A 500>` and a 10 Ω, 10 W resistor
-   across A's rails at 15 V (1.5 A).
-2. `<1 A>`, wait 1 s, then connect the resistor. Leave it for 5 s, remove it.
-3. Restore A's limit with `<JG A n>`, n from `<JG>` before step 1.
+1. Note C's limit from `<JG>`. Set it low enough that a resistor exceeds it
+   but the driver does not trip, for example `<JG C 500>` and a 10 Ω, 10 W
+   resistor at 15 V (1.5 A).
+2. `<0 C>`, then put the resistor across C's rails.
+3. Start a client collecting lines, then `<1 C>`. Leave it for 5 s, `<0 C>`,
+   remove the resistor.
+4. Restore C's limit with `<JG C n>`, n from step 1.
 
-Pass: a `TRACK A FAST OVERLOAD ...mA` line without `FAULT PIN` when the
-resistor goes on, and after each `TRACK A POWER RESTORE` an Overload of A
-again, with no `TRACK A CURRENT (... ignore)` line between a `POWER RESTORE`
-and the Overload that follows it: the retries get no Inrush Window. (Before
-the first Overload the main loop may print one; A was not powering on.)
-After the resistor is removed, A comes back with `<p1 A>`.
+Pass: the first `TRACK C FAST OVERLOAD ...mA` line, without `FAULT PIN`,
+comes about 100 ms after `<1 C>`, after the window: the main loop may print
+`TRACK C CURRENT (100ms ignore)` before it. After each
+`TRACK C POWER RESTORE` the next `TRACK C FAST OVERLOAD` follows within a few
+ms, with no `TRACK C CURRENT (... ignore)` line between them. C is AUTO, so
+a `TRACK C INVERT (fast)` line before a cut is expected: the Reversal does
+not help a resistor. A `FAULT PIN` on the cut means the resistor trips the
+driver; use a larger one.
+
+The lines go into the PR with the resistor, the voltage and the limit used.
 
 ## 3. A short at a loop's gap reverses one loop
 
