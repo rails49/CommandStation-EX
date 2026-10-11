@@ -244,12 +244,20 @@ void MotorDriver::setPower(POWERMODE mode) {
   if (mode == POWERMODE::OVERLOAD)
     globalOverloadStart = lastPowerChange[(int)mode];
   bool on=(mode==POWERMODE::ON || mode ==POWERMODE::ALERT);
-#ifdef FAST_OVERCURRENT_GUARD
   bool wasOn=(powerMode==POWERMODE::ON || powerMode==POWERMODE::ALERT);
   if (on && !wasOn) {
-    // power comes on: let inrush pass before the guard looks at the current
+    // Power comes on. A host power-on and a retry after a Fault get the
+    // Inrush Window, a retry into a current Overload does not: a soft
+    // short would be fed for the whole window on every retry.
+    noInrushWindow = powerMode == POWERMODE::OVERLOAD && overloadByCurrent;
+  } else if (mode == POWERMODE::ON || !on) {
+    noInrushWindow = false;
+  }
+#ifdef FAST_OVERCURRENT_GUARD
+  if (on && !wasOn) {
+    // let inrush pass before the guard looks at the current
     unsigned long now = micros();
-    guardArmAt = now + OVERCURRENT_INRUSH_MS * 1000UL;
+    guardArmAt = noInrushWindow ? now : now + OVERCURRENT_INRUSH_MS * 1000UL;
     guardHoldUntil = now;
     guardAcc = 0;
     guardOverCount = 0;
@@ -640,7 +648,8 @@ void  MotorDriver::getFastPin(const FSH* type,int pin, bool input, FASTPIN & res
 // If only the fault pin is active, timeout is
 // POWER_SAMPLE_IGNORE_FAULT_LOW (100ms)
 // If only overcurrent is detected, timeout is
-// POWER_SAMPLE_IGNORE_CURRENT (100ms). On a PROG track that is
+// POWER_SAMPLE_IGNORE_CURRENT (100ms), the Inrush Window, or at
+// once on a retry after a current Overload. On a PROG track that is
 // not joined only the time over the limit counts (overTime).
 // If fault pin and overcurrent are active, timeout is
 // POWER_SAMPLE_IGNORE_FAULT_HIGH (5ms)
@@ -692,7 +701,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 	 power_sample_overload_wait);
     throttleInrush(false);
     if (powerMode == POWERMODE::ON || powerMode == POWERMODE::ALERT)
-      enterOverload();
+      enterOverload(!guardEventFault);
     return;
   }
 #endif
@@ -767,7 +776,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       }
       DIAG(F("TRACK %c FAULT PIN detected after %4M. Pause %4M)"), trackno + 'A', mslpc, power_sample_overload_wait);
       throttleInrush(false);
-      enterOverload();
+      enterOverload(false);
       break;
     }
     if (checkCurrent(useProgLimit)) {
@@ -778,7 +787,9 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       // with gaps shorter than POWER_SAMPLE_ALERT_GOOD, so on a PROG track
       // only the time over the limit counts. A joined track is a main.
       bool prog = (trackMode & TRACK_MODE_PROG) && !TrackManager::isJoined();
-      if ((prog ? overTime : mslpc) < POWER_SAMPLE_IGNORE_CURRENT) {
+      // A retry into a current Overload has no Inrush Window.
+      if (prog ? overTime < POWER_SAMPLE_IGNORE_CURRENT
+	  : !noInrushWindow && mslpc < POWER_SAMPLE_IGNORE_CURRENT) {
 	if (powerModeChange) {
 	  unsigned int mA=raw2mA(lastCurrent);
 	  DIAG(F("TRACK %c CURRENT (%M ignore) %dmA"), trackno + 'A', POWER_SAMPLE_IGNORE_CURRENT, mA);
@@ -790,7 +801,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       DIAG(F("TRACK %c POWER OVERLOAD %4dmA (max %4dmA) detected after %4M. Pause %4M"),
 	   trackno + 'A', mA, maxmA, mslpc, power_sample_overload_wait);
       throttleInrush(false);
-      enterOverload();
+      enterOverload(true);
       break;
     }
     // all well
@@ -840,7 +851,10 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 
 // Cut power for an Overload and tell every client: <p0 x>, on every
 // entry including retries, so the host stops treating the track as on.
-void MotorDriver::enterOverload() {
+// byCurrent: the Overload was measured, not a Fault, and the retry gets
+// no Inrush Window.
+void MotorDriver::enterOverload(bool byCurrent) {
+  overloadByCurrent = byCurrent;
   setPower(POWERMODE::OVERLOAD);
   overloadBroadcast = true;
   CommandDistributor::broadcastPower();
