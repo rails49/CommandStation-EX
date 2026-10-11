@@ -354,6 +354,30 @@ TEST(an_auto_track_that_is_itself_over_reverses_whatever_the_plain_track_sees) {
   EXPECT(!s.reversed[C]);
 }
 
+TEST(a_loop_that_cannot_reverse_is_passed_over_whatever_its_sample) {
+  Station s;
+  s.sampleAndWait(C, 700);
+  s.sampleAndWait(D, 300);
+  s.in[C].active = false;
+  s.in[A].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+  EXPECT(!s.reversed[C]);
+}
+
+TEST(an_auto_track_over_by_current_reverses_whatever_the_plain_track_sees) {
+  for (int aFault = 0; aFault < 2; aFault++) {
+    Station s;
+    s.sampleAndWait(C, 900);
+    s.in[A].fault = aFault;
+    s.sampleAndWait(D, 5000);
+    s.sample(D, 5000);
+    s.tick();
+    EXPECT(s.reversed[D]);
+    EXPECT(!s.in[C].hasReversed);
+  }
+}
+
 int main() {
   RUN(a_fault_on_an_auto_track_reverses_it_at_once);
   RUN(nothing_happens_during_the_hold_after_a_reversal);
@@ -380,6 +404,8 @@ int main() {
   RUN(the_other_loop_reverses_if_the_fault_persists_past_the_hold);
   RUN(a_wrong_first_guess_still_ends_in_a_reversal_not_a_cut);
   RUN(an_auto_track_that_is_itself_over_reverses_whatever_the_plain_track_sees);
+  RUN(a_loop_that_cannot_reverse_is_passed_over_whatever_its_sample);
+  RUN(an_auto_track_over_by_current_reverses_whatever_the_plain_track_sees);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;
