@@ -27,6 +27,16 @@ _Avoid_: track type, track setting
 The single track in PROG mode. At most one track may be in PROG mode at a time.
 _Avoid_: service mode track, prog track
 
+**Polarity**:
+Which rail of a track carries which half of the DCC signal: normal or
+inverted. Set by the host with INV, or flipped by the station on an AUTO
+track.
+_Avoid_: phase, inversion
+
+**Reversal**:
+The station flipping an AUTO track's Polarity on its own after a short.
+_Avoid_: auto-invert, flip, auto-reverse
+
 ### Current protection
 
 **Current Limit**:
@@ -55,3 +65,13 @@ _Avoid_: trip, fault, short
 A condition the motor driver hardware itself reports on its fault pin, distinct
 from an Overload detected by measuring current.
 _Avoid_: error, overload
+
+**Guard**:
+The station's fast check of every track's fault pin and current, which cuts
+power or triggers a Reversal within about a millisecond.
+_Avoid_: fast overcurrent guard, ISR
+
+**Inrush Window**:
+The period after a track powers on in which current over the limit is
+tolerated so decoders can charge.
+_Avoid_: grace period, inrush grace
