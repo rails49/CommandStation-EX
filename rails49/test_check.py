@@ -171,6 +171,34 @@ class OverloadBroadcastTest(unittest.TestCase):
         self.assertEqual(code, 1)
 
 
+# <D GUARD> after <= D INV> and then <= A MAIN> on a build whose waveform
+# setup attaches every MAIN pin un-inverted (finding 1 of the review): D's
+# flag still says inverted, its GPIO bit does not.
+GUARD_REPLY_D_RESET = GUARD_REPLY.replace(b"inv=1 gpio=1", b"inv=1 gpio=0")
+
+
+class PolaritySurvivesTest(unittest.TestCase):
+    def check(self, reply):
+        mirror = FakeMirror(reply)
+        self.addCleanup(mirror.close)
+        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+                         "polarity-survives"])
+        return mirror, code, out
+
+    def test_d_inverted_and_a_plain_after_a_mode_command_on_a(self):
+        mirror, code, out = self.check(GUARD_REPLY)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(mirror.received, [
+            "<= D MAIN_AUTO>", "<= D INV>", "<= A MAIN>", "<D GUARD>"])
+        self.assertIn("polarity-survives: passed", out)
+
+    def test_d_reset_in_hardware_by_the_command_on_a_fails(self):
+        mirror, code, out = self.check(GUARD_REPLY_D_RESET)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL D gpio invert bit set", out)
+        self.assertIn("polarity-survives: FAILED", out)
+
+
 class TableTest(unittest.TestCase):
     def test_a_check_and_its_arguments_come_from_the_table_alone(self):
         seen = {}
