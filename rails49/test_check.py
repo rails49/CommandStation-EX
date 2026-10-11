@@ -18,11 +18,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check  # noqa: E402
 
 
-class FakeMirror:
-    """A line-based TCP server that answers <=> like the station does, and
-    broadcasts a line a moment later, as another client's command would."""
+GUARD_REPLY = (
+    b"<* GUARD A MAIN inv=0 gpio=0 active=1 acc=0us last=- trip=1200/1999mA *>\n"
+    b"<* GUARD D MAIN A inv=1 gpio=1 active=1 acc=0us last=5321ms trip=1200/1999mA *>\n"
+    b"<* GUARD ticks=9998/s max=41us *>\n")
 
-    def __init__(self):
+
+class FakeMirror:
+    """A line-based TCP server that answers <=> and <D GUARD> like the
+    station does, and after <=> broadcasts a line a moment later, as another
+    client's command would."""
+
+    def __init__(self, guard_reply=GUARD_REPLY):
+        self.guard_reply = guard_reply
         self.server = socket.create_server(("127.0.0.1", 0))
         self.port = self.server.getsockname()[1]
         self.received = []
@@ -47,6 +55,8 @@ class FakeMirror:
                         conn.sendall(b"<= A MAIN>\n<= D MAIN A>\n")
                         threading.Event().wait(0.05)
                         conn.sendall(b"<p1 A>\n")
+                    elif line == b"<D GUARD>":
+                        conn.sendall(self.guard_reply)
 
     def close(self):
         self.server.close()
@@ -81,6 +91,36 @@ class SendTest(unittest.TestCase):
         code, out = run(["--port", str(free_port()), "send", "<=>"])
         self.assertEqual(code, 2)
         self.assertIn("cannot talk to", out)
+
+
+class GuardTest(unittest.TestCase):
+    def mirror(self, reply=GUARD_REPLY):
+        mirror = FakeMirror(reply)
+        self.addCleanup(mirror.close)
+        return mirror
+
+    def test_guard_sends_d_guard_and_prints_the_lines(self):
+        mirror = self.mirror()
+        code, out = run(["--port", str(mirror.port), "--window", "0.2",
+                         "guard"])
+        self.assertEqual(code, 0)
+        self.assertEqual(mirror.received, ["<D GUARD>"])
+        for line in GUARD_REPLY.decode().splitlines():
+            self.assertIn("    " + line, out.splitlines())
+        self.assertIn("guard: passed", out)
+
+    def test_parse_guard_counters(self):
+        self.assertEqual(
+            check.parse_guard_counters(GUARD_REPLY.decode().splitlines()),
+            check.GuardCounters(9998, 41))
+        self.assertIsNone(check.parse_guard_counters(["<* GUARD A x *>"]))
+
+    def test_a_build_without_d_guard_fails(self):
+        mirror = self.mirror(b"")
+        code, out = run(["--port", str(mirror.port), "--window", "0.2",
+                         "guard"])
+        self.assertEqual(code, 1)
+        self.assertIn("guard: FAILED", out)
 
 
 class TableTest(unittest.TestCase):
