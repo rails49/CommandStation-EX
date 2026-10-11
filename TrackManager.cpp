@@ -150,8 +150,7 @@ void TrackManager::Setup(const FSH * shieldname,
 //   tracks: the one which is overloaded or, if a normal track is
 //   overloaded, all of them, as in a reverse loop short the driver of
 //   the normal track can be the one that sees it (or switches off by
-//   itself). After that all tracks get GUARD_SETTLE_US to recover, and
-//   GUARD_FAULT_SETTLE_US for their fault pin, which is timed.
+//   itself). After that all tracks get GUARD_SETTLE_US to recover.
 // - If inverting does not help, a track which has been overloaded for
 //   OVERCURRENT_FAST_TRIP_US gets its power cut.
 // The guard watches the fault pin from power on, the current only
@@ -193,8 +192,6 @@ void IRAM_ATTR TrackManager::guardISR() {
       if (track[t]) {
 	track[t]->guardHoldUntil = now + MotorDriver::GUARD_SETTLE_US;
 	track[t]->guardAcc = 0;
-	track[t]->guardInvertAt = now;
-	track[t]->guardFaultTiming = true;
 	if (track[t]->guardTracing == 0) {
 	  track[t]->guardTraceStart = now;
 	  track[t]->guardTraceN = 0;

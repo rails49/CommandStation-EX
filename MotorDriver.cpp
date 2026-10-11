@@ -250,7 +250,6 @@ void MotorDriver::setPower(POWERMODE mode) {
     unsigned long now = micros();
     guardArmAt = now + OVERCURRENT_INRUSH_MS * 1000UL;
     guardHoldUntil = now;
-    guardFaultTiming = false;
     if (guardTracing == 1) { // cut by the main loop, the trace is lost
       inrushTraceN = 0;
       guardTracing = 0;
@@ -333,12 +332,6 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
     }
   }
   guardTraceFault = fault;
-  if (guardFaultTiming) { // after an invert the fault pin is ignored
-    if (now - guardInvertAt < GUARD_FAULT_SETTLE_US)
-      fault = false;
-    else
-      guardFaultTiming = false;
-  }
   if ((long)(now - guardHoldUntil) < 0)
     return false;
   // Current is ignored during inrush. tripValue is the limit the main
@@ -568,6 +561,8 @@ void MotorDriver::throttleInrush(bool on) {
   if ( !(trackMode & (TRACK_MODE_MAIN | TRACK_MODE_PROG | TRACK_MODE_EXT | TRACK_MODE_BOOST)))
     return;
 #ifdef FAST_OVERCURRENT_GUARD
+  if (guardActive) // no brake PWM on a track the guard watches
+    on = false;
   if (on != inrushOn) {
     inrushOn = on;
     if (guardTracing == 1 && inrushTraceN < INRUSH_TRACE_MAX) {
