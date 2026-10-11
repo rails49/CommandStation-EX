@@ -99,6 +99,7 @@ class TrackManager {
     static TRACK_MODE getMode(byte t);
     static int16_t returnDCAddr(byte t);
     static const FSH* getModeName(TRACK_MODE Mode);
+    static TRACK_MODE reportedMode(byte t);
 #ifdef FAST_OVERCURRENT_GUARD
     static void reportGuard();
 #endif
