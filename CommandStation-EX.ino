@@ -187,6 +187,9 @@ void loop()
  
   // Responsibility 2: handle any incoming commands on USB connection
   SerialManager::loop();
+
+  // Power off the tracks if the host stopped sending <G n>
+  HostTimeout::loop();
  
   // Responsibility 3: Optionally handle any incoming WiFi traffic
 #ifndef ARDUINO_ARCH_ESP32

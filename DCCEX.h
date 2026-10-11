@@ -50,6 +50,7 @@
 #include "TrackManager.h"
 #include "DCCTimer.h"    
 #include "KeywordHasher.h"
+#include "HostTimeout.h"
 #include "EXRAIL.h"
     
 #endif

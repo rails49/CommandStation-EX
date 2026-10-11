@@ -58,7 +58,7 @@ Once a new OPCODE is decided upon, update this list.
   f, Loco decoder function control (deprecated)
   F, Loco decoder function control
   g,
-  G,
+  G, Host timeout
   h,
   H, Turnout state broadcast
   i, Server details string
@@ -122,6 +122,7 @@ Once a new OPCODE is decided upon, update this list.
 #include "CamParser.h"
 #include "Stash.h"
 #include "DCCConsist.h"
+#include "HostTimeout.h"
 #ifdef ARDUINO_ARCH_ESP32
 #include "WifiESP32.h"
 #include "DCCDecoder.h"
@@ -784,6 +785,10 @@ void DCCEXParser::parseOne(Print *stream, byte *com, RingStream * ringStream)
 	    freeSlotGuess = 0;
 	  StringFormatter::send(stream, F("<# %d>\n"), freeSlotGuess);
 	}
+        return;
+
+    case 'G': // HOST TIMEOUT <G seconds>, <G 0> off
+        if (params != 1 || !HostTimeout::set(p[0])) break;
         return;
 
     case '-': // Forget Loco <- [cab]>
