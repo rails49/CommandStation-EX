@@ -197,7 +197,8 @@ void IRAM_ATTR TrackManager::guardTick(unsigned long now) {
     if (track[t]) track[t]->guardAct(in[t], out[t], now);
 }
 
-// <D GUARD>: what the Guard and the hardware hold for each track, then
+// <D GUARD>: what the Guard and the hardware hold for each track, its trip
+// value in raw counts and mA among them, then
 // the Guard's ticks per second and its longest tick since the last call.
 void TrackManager::reportGuard() {
   unsigned long nowMs = millis();
@@ -208,9 +209,10 @@ void TrackManager::reportGuard() {
     char last[12] = "-";
     if (md->guardHasInverted)
       snprintf(last, sizeof(last), "%lums", (nowUs - md->guardLastInvert) / 1000UL);
-    DIAG(F("GUARD %c %S inv=%d gpio=%d active=%d acc=%lus last=%s"),
+    int trip = md->getTripValue();
+    DIAG(F("GUARD %c %S inv=%d gpio=%d active=%d acc=%lus last=%s trip=%d/%dmA"),
 	 'A' + t, getModeName(md->getMode()), md->isInverted(), md->readInvertBit(),
-	 md->guardActive, (long)md->guardAcc, last);
+	 md->guardActive, (long)md->guardAcc, last, trip, md->raw2mA(trip));
   }
   uint32_t ticks = __atomic_exchange_n(&guardTicks, 0, __ATOMIC_SEQ_CST);
   uint32_t maxUs = __atomic_exchange_n(&guardMaxTickUs, 0, __ATOMIC_SEQ_CST);
@@ -467,6 +469,7 @@ bool TrackManager::setTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr
     }
     streamTrackState(NULL,trackToSet);
     // A track entering or leaving PROG may change the limit <JG> reports.
+    refreshTripValues();
     if ((mode ^ oldmode) & TRACK_MODE_PROG) broadcastGauges();
     //DIAG(F("TrackMode=%d"),mode);
     return true; 
@@ -611,13 +614,26 @@ void TrackManager::loop() {
 #ifndef DISABLE_PROG
     DCCACK::loop();
 #endif
-    bool dontLimitProg=DCCACK::isActive() || progTrackSyncMain || progTrackBoosted;
     nextCycleTrack++;
     if (nextCycleTrack>lastTrack) nextCycleTrack=0;
     if (track[nextCycleTrack]==NULL) return;
     MotorDriver * motorDriver=track[nextCycleTrack];
-    bool useProgLimit=dontLimitProg ? false : (bool)(track[nextCycleTrack]->getMode() & TRACK_MODE_PROG);
-    motorDriver->checkPowerOverload(useProgLimit, nextCycleTrack);   
+    motorDriver->checkPowerOverload(useProgLimit(nextCycleTrack), nextCycleTrack);   
+}
+
+// The prog limit applies to a PROG track unless an ack, a join or
+// <C PROGBOOST> bypasses it.
+bool TrackManager::useProgLimit(byte t) {
+  bool dontLimitProg=DCCACK::isActive() || progTrackSyncMain || progTrackBoosted;
+  return dontLimitProg ? false : (bool)(track[t]->getMode() & TRACK_MODE_PROG);
+}
+
+// Bring every track's trip value up to date after the limit in force
+// changed, so the Guard trips at it from its next tick rather than after
+// the main loop's next pass over the track.
+void TrackManager::refreshTripValues() {
+  FOR_EACH_TRACK(t)
+    if (track[t]) track[t]->setTripValue(useProgLimit(t));
 }
 
 MotorDriver * TrackManager::getProgDriver() {
@@ -835,6 +851,7 @@ void TrackManager::setJoin(bool joined) {
   }
 #endif
   progTrackSyncMain=joined;
+  refreshTripValues();
   if (joinRelay!=UNUSED_PIN) digitalWrite(joinRelay,joined?HIGH:LOW);
 }
 

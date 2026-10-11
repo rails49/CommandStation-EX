@@ -230,6 +230,7 @@ MotorDriver::MotorDriver(int16_t power_pin, byte signal_pin, byte signal_pin2, i
   }
 
   progTripValue = mA2raw(TRIP_CURRENT_PROG); 
+  setTripValue(false); // a track starts as NONE, not PROG
 }
 
 bool MotorDriver::isPWMCapable() {
@@ -600,6 +601,7 @@ bool MotorDriver::setCurrentLimit(unsigned int mA) {
   tripMilliamps=mA;
   rawCurrentTripValue=mA2raw(mA);
   limitSet=true;
+  setTripValue(false); // the Guard trips at it from its next tick
   return true;
 }
 

@@ -107,6 +107,8 @@ class TrackManager {
     static int16_t joinRelay;
     static bool progTrackSyncMain;  // true when prog track is a siding switched to main
     static bool progTrackBoosted;   // true when prog track is not current limited
+    static bool useProgLimit(byte t);
+    static void refreshTripValues();
 
 #ifdef DEBUG_ADC
   public:

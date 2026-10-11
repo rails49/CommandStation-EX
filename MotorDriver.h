@@ -293,6 +293,16 @@ class MotorDriver {
     // Set the current limit (trip current) at runtime. Returns false if this
     // driver has no current sense and therefore no overload detection at all.
     bool setCurrentLimit(unsigned int mA);
+    // The raw value the Guard and the main loop compare a sample against.
+    // useProgLimit: the track is PROG and the prog limit is not bypassed.
+    // A limit set with <JG> is the only limit: the prog limit and its
+    // bypasses no longer apply to this track.
+    inline void setTripValue(bool useProgLimit) {
+      tripValue = (useProgLimit && !limitSet) ? progTripValue : rawCurrentTripValue;
+    }
+    inline int getTripValue() {
+      return tripValue;
+    }
     bool isPWMCapable();
     bool canMeasureCurrent();
     bool trackPWM = false; // this track uses PWM timer to generate the DCC waveform
@@ -410,9 +420,7 @@ class MotorDriver {
     };
     // side effect sets lastCurrent and tripValue, and adds to the mean
     inline bool checkCurrent(bool useProgLimit) {
-      // A limit set with <JG> is the only limit: the prog limit and its
-      // bypasses no longer apply to this track.
-      tripValue= (useProgLimit && !limitSet)?progTripValue:getRawCurrentTripValue();
+      setTripValue(useProgLimit);
       lastCurrent = getCurrentRaw();
       if (lastCurrent < 0)
 	lastCurrent = -lastCurrent;
@@ -471,7 +479,10 @@ class MotorDriver {
     static const unsigned int CURRENT_SAMPLES_MAX = 16384;
     uint32_t currentSum = 0;
     unsigned int currentSamples = 0;
-    int  tripValue;   //temp value
+    // The limit in force in raw counts, read by the Guard. Set from the
+    // Board Limit in the constructor, on every change of the limit, and by
+    // the main loop on each pass.
+    volatile int tripValue;
 #ifdef ANALOG_READ_INTERRUPT
     volatile unsigned long sampleCurrentTimestamp;
     volatile uint16_t sampleCurrent;

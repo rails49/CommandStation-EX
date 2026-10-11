@@ -10,6 +10,7 @@ asserts on what a host sees. Run it on the layout box, where the mirror port
 is local:
 
     uv run rails49/check.py polarity-survives
+    uv run rails49/check.py trip-follows-jg
     uv run rails49/check.py --host 127.0.0.1 --port 2560 send "<D GUARD>"
 
 The checks change track modes and power on the layout. Running one is the
@@ -44,11 +45,14 @@ class GuardLine:
     active: int
     acc_us: int
     last: str
+    trip: int | None     # raw counts, None from a build before #10
+    trip_ma: int | None
 
 
 GUARD_RE = re.compile(
     r"GUARD (?P<track>[A-H]) (?P<mode>.+?) inv=(?P<inv>\d) gpio=(?P<gpio>\d) "
     r"active=(?P<active>\d) acc=(?P<acc>-?\d+)us last=(?P<last>\S+)"
+    r"(?: trip=(?P<trip>\d+)/(?P<tripma>\d+)mA)?"
 )
 
 
@@ -59,8 +63,18 @@ def parse_guard(lines: list[str]) -> dict[str, GuardLine]:
         if m:
             result[m["track"]] = GuardLine(
                 m["track"], m["mode"], int(m["inv"]), int(m["gpio"]),
-                int(m["active"]), int(m["acc"]), m["last"])
+                int(m["active"]), int(m["acc"]), m["last"],
+                int(m["trip"]) if m["trip"] else None,
+                int(m["tripma"]) if m["tripma"] else None)
     return result
+
+
+def gauges(lines: list[str]) -> list[int]:
+    """The limits in mA from the <jG ...> reply, one per track from A."""
+    for line in lines:
+        if line.startswith("<jG ") and line.endswith(">"):
+            return [int(v) for v in line[4:-1].split()]
+    return []
 
 
 def track_states(lines: list[str], track: str) -> list[str]:
@@ -185,6 +199,25 @@ def reversal_broadcast(st: Station, args):
            f"<= {TRACK} MAIN A[ I]> broadcast after the Reversal")
 
 
+def trip_follows_jg(st: Station, args):
+    """A limit set with <JG> is the Guard's trip value at once."""
+    before = gauges(st.send("<JG>"))
+    index = ord(TRACK) - ord("A")
+    expect(len(before) > index, f"<JG> reports a limit for {TRACK}")
+    try:
+        st.send(f"<JG {TRACK} {args.ma}>")
+        guard = parse_guard(st.send("<D GUARD>"))
+        expect(TRACK in guard, f"<D GUARD> reports {TRACK}")
+        d = guard[TRACK]
+        expect(d.trip is not None, f"<D GUARD> reports {TRACK}'s trip value")
+        # the mA come back through the ADC's raw counts, so may be a little low
+        expect(args.ma - 20 <= d.trip_ma <= args.ma,
+               f"{TRACK} trips at {d.trip_ma}mA ({d.trip} raw), set {args.ma}mA")
+    finally:
+        print(f"restoring {TRACK}'s limit to {before[index]}mA")
+        st.send(f"<JG {TRACK} {before[index]}>")
+
+
 def send(st: Station, args):
     """Send one command and print every line for the window."""
     st.send(args.command)
@@ -196,6 +229,7 @@ CHECKS = {
     "no-cut": no_cut,
     "overload-broadcast": overload_broadcast,
     "reversal-broadcast": reversal_broadcast,
+    "trip-follows-jg": trip_follows_jg,
 }
 
 
@@ -212,6 +246,9 @@ def main(argv=None) -> int:
         if name in ("overload-broadcast", "reversal-broadcast"):
             p.add_argument("--wait", type=float, default=30.0,
                            help="seconds to collect while the user acts")
+        if name == "trip-follows-jg":
+            p.add_argument("--ma", type=int, default=300,
+                           help="limit to set, mA")
     p = sub.add_parser("send", help=send.__doc__)
     p.add_argument("command")
     p.set_defaults(fn=send)
