@@ -61,6 +61,11 @@ struct GuardTimes {
   unsigned long reinvertUs;    // a track is not reversed again within this
 };
 
+// Whether a track powering on gets the Inrush Window, ADR-0006: a host
+// power-on (from OFF) and a retry after a Fault do, a retry after a current
+// Overload does not, so a soft short is cut within the fast trip time.
+bool guardInrushWindow(bool fromOverload, bool overloadByCurrent);
+
 // Map the inputs of tracks 0..n-1 to their outputs, n <= GUARD_MAX_TRACKS.
 void guardDecide(const GuardIn in[], GuardOut out[], uint8_t n,
                  unsigned long now, const GuardTimes &times);

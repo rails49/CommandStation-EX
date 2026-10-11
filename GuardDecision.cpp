@@ -40,6 +40,10 @@ static inline bool GUARD_DECISION_ATTR canReverse(const GuardIn &in, unsigned lo
     && !(in.hasReversed && now - in.lastReversal < times.reinvertUs);
 }
 
+bool guardInrushWindow(bool fromOverload, bool overloadByCurrent) {
+  return !(fromOverload && overloadByCurrent);
+}
+
 void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t n,
                                      unsigned long now, const GuardTimes &times) {
   bool over[GUARD_MAX_TRACKS];    // counts toward the cut
