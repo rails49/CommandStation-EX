@@ -694,8 +694,9 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
   // Report and follow up what the guard interrupt did
   uint32_t ev = __atomic_exchange_n(&guardEvent, 0, __ATOMIC_SEQ_CST);
   if (ev & GUARD_INVERTED) {
+    // the host learns the Polarity, then the diagnostic says why
+    TrackManager::streamTrackState(NULL, trackno);
     DIAG(F("TRACK %c INVERT (fast)"), trackno + 'A');
-    TrackManager::streamTrackState(NULL, trackno); // the host learns the Polarity
   }
   if (ev & GUARD_TRIPPED) {
     // power pin is already off, now get the state machine to agree
@@ -740,9 +741,9 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 	  && !guardActive // then the guard interrupt does the inverting
 #endif
 	  ){
-	DIAG(F("TRACK %c INVERT"), trackno + 'A');
 	invertOutput();
 	TrackManager::streamTrackState(NULL, trackno); // the host learns the Polarity
+	DIAG(F("TRACK %c INVERT"), trackno + 'A');
       }
       break;
     }
