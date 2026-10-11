@@ -199,6 +199,59 @@ class PolaritySurvivesTest(unittest.TestCase):
         self.assertIn("polarity-survives: FAILED", out)
 
 
+# What the station answers to no-cut's commands when only a base mode change
+# cuts power (ADR-0005). Each <= broadcasts D's state; <s> its power.
+NO_CUT = {
+    b"<1 D>": b"<p1 D>\n",
+    b"<= D MAIN_AUTO_INV>": b"<= D MAIN A I>\n",
+    b"<= D MAIN_AUTO>": b"<= D MAIN A>\n",
+    b"<= D MAIN>": b"<= D MAIN>\n",
+    b"<= D INV>": b"<= D MAIN I>\n",
+    b"<s>": b"<iDCC-EX V-5.4.0 / ESP32 / x / y>\n<p1 A>\n<p1 D>\n",
+    b"<= D NONE>": b"<p0 D>\n<= D NONE>\n",
+}
+
+
+class NoCutTest(unittest.TestCase):
+    def check(self, replies):
+        mirror = FakeMirror(replies=replies)
+        self.addCleanup(mirror.close)
+        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+                         "no-cut"])
+        return mirror, code, out
+
+    def test_modifier_changes_and_repeats_keep_d_on(self):
+        mirror, code, out = self.check(NO_CUT)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(mirror.received[:9], [
+            "<= D MAIN_AUTO>", "<1 D>", "<= D MAIN_AUTO_INV>",
+            "<= D MAIN_AUTO>", "<= D MAIN_AUTO>", "<= D MAIN>", "<= D INV>",
+            "<= D MAIN_AUTO>", "<s>"])
+        self.assertEqual(mirror.received[9], "<= D NONE>")
+        self.assertIn("no-cut: passed", out)
+
+    def test_a_cut_on_an_inv_change_fails(self):
+        replies = dict(NO_CUT)
+        replies[b"<= D MAIN_AUTO>"] = b"<p0 D>\n<= D MAIN A>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("no-cut: FAILED", out)
+
+    def test_d_off_afterwards_fails(self):
+        replies = dict(NO_CUT)
+        replies[b"<s>"] = b"<p1 A>\n<p0 D>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <s> reports D on", out)
+
+    def test_no_cut_on_a_base_mode_change_fails(self):
+        replies = dict(NO_CUT)
+        replies[b"<= D NONE>"] = b"<= D NONE>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <p0 D> after NONE", out)
+
+
 class TableTest(unittest.TestCase):
     def test_a_check_and_its_arguments_come_from_the_table_alone(self):
         seen = {}

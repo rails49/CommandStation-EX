@@ -183,12 +183,17 @@ def no_cut(st: Station, args):
     """A mode command cuts power only when the base mode changes."""
     st.send(f"<= {TRACK} MAIN_AUTO>")
     st.send(f"<1 {TRACK}>")
-    lines = st.send(f"<= {TRACK} MAIN_AUTO_INV>")
-    expect(f"<p0 {TRACK}>" not in lines, f"no <p0 {TRACK}> after MAIN_AUTO_INV")
-    expect(track_states(lines, TRACK) == ["MAIN A I"], f"broadcast <= {TRACK} MAIN A I>")
-    lines = st.send("<=>") + st.send("<p>")
-    expect(track_states(lines, TRACK) == ["MAIN A I"], f"<=> still reports {TRACK} MAIN A I")
-    expect(f"<p1 {TRACK}>" in lines, f"<p> reports {TRACK} on")
+    # Each step changes INV or AUTO alone, or repeats the mode (ADR-0005).
+    for mode, state in [("MAIN_AUTO_INV", "MAIN A I"), ("MAIN_AUTO", "MAIN A"),
+                        ("MAIN_AUTO", "MAIN A"), ("MAIN", "MAIN"),
+                        ("INV", "MAIN I"), ("MAIN_AUTO", "MAIN A")]:
+        lines = st.send(f"<= {TRACK} {mode}>")
+        expect(f"<p0 {TRACK}>" not in lines, f"no <p0 {TRACK}> after {mode}")
+        expect(track_states(lines, TRACK) == [state],
+               f"broadcast <= {TRACK} {state}>")
+    # <s> is the station's only power query; it broadcasts every track's.
+    lines = st.send("<s>")
+    expect(power_lines(lines, TRACK) == [f"<p1 {TRACK}>"], f"<s> reports {TRACK} on")
     lines = st.send(f"<= {TRACK} NONE>")
     expect(f"<p0 {TRACK}>" in lines, f"<p0 {TRACK}> after NONE")
     print(f"restoring {TRACK} to MAIN_AUTO and on")
