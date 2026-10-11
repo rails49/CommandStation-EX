@@ -250,6 +250,7 @@ void MotorDriver::setPower(POWERMODE mode) {
     unsigned long now = micros();
     guardArmAt = now + OVERCURRENT_INRUSH_MS * 1000UL;
     guardHoldUntil = now;
+    guardFaultTiming = false;
     guardAcc = 0;
     guardLastRaw = 0;
   }
@@ -316,11 +317,22 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
       guardLastRaw = raw < 0 ? -raw : raw;
     }
   }
-  if ((long)(now - guardHoldUntil) < 0)
-    return false;
   bool fault = false;
   if (faultPin != UNUSED_PIN && !commonFaultPin)
     fault = invertFault ? isHIGH(fastFaultPin) : isLOW(fastFaultPin);
+  if (guardFaultTiming) { // after an invert the fault pin is timed, not acted on
+    if (now - guardInvertAt < GUARD_FAULT_SETTLE_US) {
+      if (fault)
+	guardFaultFor = now - guardInvertAt;
+      fault = false;
+    } else {
+      guardFaultTiming = false;
+      if (guardFaultFor >= 0)
+	guardEvent |= GUARD_FAULT_TIMED;
+    }
+  }
+  if ((long)(now - guardHoldUntil) < 0)
+    return false;
   // Current is ignored during inrush. tripValue is the limit the main
   // loop has in force, which is raised during ack, join and PROGBOOST.
   // The current of a PROG track is left to the main loop: NMRA S-9.2.3
@@ -675,6 +687,8 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
   uint32_t ev = __atomic_exchange_n(&guardEvent, 0, __ATOMIC_SEQ_CST);
   if (ev & GUARD_INVERTED)
     DIAG(F("TRACK %c INVERT (fast)"), trackno + 'A');
+  if (ev & GUARD_FAULT_TIMED)
+    DIAG(F("TRACK %c FAULT PIN on until %lus after invert"), trackno + 'A', guardFaultFor);
   if (ev & GUARD_TRIPPED) {
     // power pin is already off, now get the state machine to agree
     DIAG(F("TRACK %c FAST OVERLOAD %dmA%S. Pause %4M"), trackno + 'A',

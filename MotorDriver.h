@@ -363,12 +363,17 @@ class MotorDriver {
     // checkPowerOverload() in the main loop.
     static const uint32_t GUARD_INVERTED = 1;
     static const uint32_t GUARD_TRIPPED = 2;
-    // After an invert all tracks ignore overcurrent this long. Must be longer than
-    // the automatic retry time of driver chips that switch off by themselves
-    // (DRV8874: 2ms) as they keep their fault pin active until then.
+    static const uint32_t GUARD_FAULT_TIMED = 4;
+    // After an invert all tracks ignore their current this long.
     static const unsigned long GUARD_SETTLE_US = 4000UL;
-    // A reverse loop track is not inverted again within this time
-    static const unsigned long GUARD_REINVERT_US = 20000UL;
+    // After an invert all tracks ignore their fault pin this long. Driver
+    // chips that switch off by themselves keep it active while they retry
+    // (DRV8874: 2ms), and on a reverse loop short at times for longer.
+    // The guard reports for how long it was active.
+    static const unsigned long GUARD_FAULT_SETTLE_US = 20000UL;
+    // A reverse loop track is not inverted again within this time.
+    // Longer than GUARD_FAULT_SETTLE_US.
+    static const unsigned long GUARD_REINVERT_US = 40000UL;
     bool guardEligible();
     bool guardPoll(bool readADC, unsigned long now);
     bool guardTryInvert(unsigned long now);
@@ -379,7 +384,10 @@ class MotorDriver {
     volatile unsigned long guardArmAt = 0;     // guard ignores the current until then (inrush)
     volatile unsigned long guardHoldUntil = 0; // guard ignores overcurrent until then (after invert)
     volatile unsigned long guardLastInvert = 0;
-    volatile long guardAcc = 0;                // microseconds of overcurrent, leaky
+    volatile bool guardFaultTiming = false;    // within GUARD_FAULT_SETTLE_US of an invert
+    volatile unsigned long guardInvertAt = 0;  // time of the last invert of any track
+    volatile long guardFaultFor = -1;          // fault pin last active this long after it, -1 not at all
+    volatile long guardAcc = 0;               // microseconds of overcurrent, leaky
     volatile int guardLastRaw = 0;             // last ADC sample, offset removed
     volatile uint32_t guardEvent = 0;
     volatile int guardEventRaw = 0;
