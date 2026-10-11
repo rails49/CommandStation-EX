@@ -1392,6 +1392,12 @@ bool DCCEXParser::parseD(Print *stream, int16_t params, int16_t p[])
         DCC::displayCabList(stream);
         return true;
 
+#ifdef FAST_OVERCURRENT_GUARD
+    case "GUARD"_hk: // <D GUARD>
+        TrackManager::reportGuard();
+        return true;
+#endif
+
     case "RAM"_hk: // <D RAM>
         DIAG(F("Free memory=%d"), DCCTimer::getMinimumFreeMemory());
         return true;

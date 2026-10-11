@@ -357,6 +357,15 @@ class MotorDriver {
   inline TRACK_MODE getMode() {
     return trackMode;
   };
+  inline bool isInverted() {                 // Polarity the output has now
+    return invertPhase;
+  };
+#if defined(ARDUINO_ARCH_ESP32)
+  inline bool readInvertBit() {              // invert bit as the gpio out register has it
+    uint32_t *outreg = (uint32_t *)(GPIO_FUNC0_OUT_SEL_CFG_REG + 4*signalPin);
+    return (*outreg >> GPIO_FUNC0_OUT_INV_SEL_S) & 0x1;
+  };
+#endif
 #ifdef FAST_OVERCURRENT_GUARD
     // Fast overcurrent guard state, shared with TrackManager::guardISR().
     // Bit flags for guardEvent, set in the ISR and consumed by
@@ -379,6 +388,7 @@ class MotorDriver {
     volatile unsigned long guardArmAt = 0;     // guard ignores the current until then (inrush)
     volatile unsigned long guardHoldUntil = 0; // guard ignores overcurrent until then (after invert)
     volatile unsigned long guardLastInvert = 0;
+    volatile bool guardHasInverted = false;    // guardLastInvert is valid
     volatile long guardAcc = 0;                // microseconds of overcurrent, leaky
     volatile int guardLastRaw = 0;             // last ADC sample, offset removed
     volatile uint32_t guardEvent = 0;
