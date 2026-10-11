@@ -254,6 +254,24 @@ TEST(a_sample_under_the_limit_resets_the_count) {
   EXPECT(!s.in[D].hasReversed);
 }
 
+TEST(over_under_over_does_not_reverse_but_the_next_over_does) {
+  Station s;
+  EXPECT(!s.sampleAndWait(D, 5000));
+  EXPECT(!s.sampleAndWait(D, 500));
+  EXPECT(!s.sampleAndWait(D, 5000));
+  s.sample(D, 5000);
+  s.tick();
+  EXPECT(s.reversed[D]);
+}
+
+TEST(a_fault_reverses_on_its_first_tick_whatever_the_count) {
+  Station s;
+  EXPECT(!s.sampleAndWait(D, 5000));
+  s.in[D].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+}
+
 TEST(one_sample_over_on_a_plain_track_reverses_no_loop) {
   Station s;
   EXPECT(!s.sampleAndWait(A, 5000));
@@ -352,6 +370,8 @@ int main() {
   RUN(one_sample_over_does_not_reverse_an_auto_track);
   RUN(two_consecutive_samples_over_reverse_an_auto_track);
   RUN(a_sample_under_the_limit_resets_the_count);
+  RUN(over_under_over_does_not_reverse_but_the_next_over_does);
+  RUN(a_fault_reverses_on_its_first_tick_whatever_the_count);
   RUN(one_sample_over_on_a_plain_track_reverses_no_loop);
   RUN(two_samples_over_on_a_plain_track_reverse_a_loop);
   RUN(a_sustained_soft_short_on_an_auto_track_reverses_before_the_cut);
