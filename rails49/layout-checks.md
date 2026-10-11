@@ -89,3 +89,31 @@ power line of its own, only the `<p1 D>` once it is back on.
 Fail: no `<p0 D>` after an OVERLOAD line, or no `<p1 D>` at the end.
 
 The lines go into the PR.
+
+## 5. A Reversal tells the host the new Polarity
+
+When the Guard reverses an AUTO track, the station broadcasts the track's
+state line, named from the hardware invert flag, and then the Reversal's
+diagnostic (ADR-0005, #15). Needs the user's OK to power D.
+
+1. Without a train: `uv run rails49/check.py reports`. Pass: it says
+   `passed`; `<=>` read `<= D MAIN A I>` after `<= D INV>` and `<= D MAIN A>`
+   after `<= D MAIN_AUTO>`.
+2. A loco next to the gap at the end of D where D's normal Polarity is the
+   wrong one; the check sets D to `MAIN_AUTO`, normal Polarity.
+3. Start `uv run rails49/check.py reversal-broadcast --wait 30`, which sends
+   `<= D MAIN_AUTO>` and `<1 D>`.
+4. When it asks, run the loco across the gap into D.
+
+Pass: the check says `passed`, the loco runs on, and the lines show
+
+    <= D MAIN A I>
+    <p1 A>
+    ...
+    <* TRACK D INVERT (fast) *>
+
+If the loco then leaves D across its other gap, that Reversal gives
+`<= D MAIN A>` the same way. Fail: a `TRACK D INVERT` line with no
+`<= D ...>` line next to it.
+
+The lines of steps 1 and 4 go into the PR.
