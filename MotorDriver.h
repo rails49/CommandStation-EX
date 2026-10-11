@@ -304,6 +304,7 @@ class MotorDriver {
       isProgTrack = on;
     }
     void checkPowerOverload(bool useProgLimit, byte trackno);
+    void enterOverload();
     inline void setTrackLetter(char c) {
       trackLetter = c;
     };
@@ -453,6 +454,7 @@ class MotorDriver {
     static unsigned long globalOverloadStart; // timestamp in microseconds
     int progTripValue;
     bool limitSet = false; // set by <JG>, replaces the prog limit
+    bool overloadBroadcast = false; // <p0 x> went out for an Overload, <p1 x> is due
     int  lastCurrent; //temp value
     // Sum and count of samples for getCurrentRawMean(). 4095 * 16384 fits
     // in 32 bits.
