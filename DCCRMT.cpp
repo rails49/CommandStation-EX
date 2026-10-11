@@ -275,7 +275,7 @@ bool RMTChannel::addPin(byte pin, bool inverted) {
   if (err != ESP_OK) return false;
   return true;
 }
-bool RMTChannel::addPin(pinpair pins) {
-  return addPin(pins.pin) && addPin(pins.invpin, true);
+bool RMTChannel::addPin(pinpair pins, bool inverted) {
+  return addPin(pins.pin, inverted) && addPin(pins.invpin, !inverted);
 }
 #endif //ESP32
