@@ -40,16 +40,21 @@ DCCWaveform::DCCWaveform(byte preambleBits, bool isMain) {
   requiredPreambles = preambleBits;
 }
 void DCCWaveform::begin() {
-  for(const auto& md: TrackManager::getMainDrivers()) {
-    pinpair p = md->getSignalPin();
-    if(rmtMainChannel) {
-      //DIAG(F("added pins %d %d to MAIN channel"), p.pin, p.invpin);
-      rmtMainChannel->addPin(p); // add pin to existing main channel
-    } else {
-      //DIAG(F("new MAIN channel with pins %d %d"), p.pin, p.invpin);
-      rmtMainChannel = new RMTChannel(p, true); /* create new main channel */
-    }
+  std::vector<MotorDriver *> mainDrivers = TrackManager::getMainDrivers();
+  if (!rmtMainChannel && !mainDrivers.empty()) {
+    //DIAG(F("new MAIN channel with pins %d %d"), p.pin, p.invpin);
+    rmtMainChannel = new RMTChannel(mainDrivers[0]->getSignalPin(), true); /* create new main channel */
   }
+  // Attach every MAIN track's pins with the Polarity it has now, so a mode
+  // command on one track leaves the others as they are. With interrupts
+  // off the Guard cannot reverse a track between reading its flag and
+  // writing the register.
+  noInterrupts();
+  for(const auto& md: mainDrivers) {
+    //DIAG(F("added pins %d %d to MAIN channel"), p.pin, p.invpin);
+    rmtMainChannel->addPin(md->getSignalPin(), md->isInverted());
+  }
+  interrupts();
   MotorDriver *md = TrackManager::getProgDriver();
   if (md) {
     pinpair p = md->getSignalPin();
