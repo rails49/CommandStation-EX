@@ -145,7 +145,9 @@ void TrackManager::Setup(const FSH * shieldname,
 // Fast overcurrent guard, runs every OVERCURRENT_TICK_US from a
 // hardware timer. Each tick it reads the fault pin of every guarded
 // track and the current of one of them (round robin, an ADC
-// conversion is slow). Then:
+// conversion is slow), hands that to guardDecide() and does what it
+// returns. guardDecide() is a plain function, tested natively by
+// rails49/test-guard.sh. It decides:
 // - On the first sign of a short it inverts the reverse loop (AUTO)
 //   tracks: the one which is overloaded or, if a normal track is
 //   overloaded, all of them, as in a reverse loop short the driver of
@@ -170,12 +172,14 @@ void IRAM_ATTR TrackManager::guardISR() {
   if (took > guardMaxTickUs) guardMaxTickUs = took;
 }
 
+// Read every track, let guardDecide() decide, do what it decided.
 void IRAM_ATTR TrackManager::guardTick(unsigned long now) {
   static byte adcTrack = 0;
-  bool over[MAX_TRACKS];
-  bool anyOver = false;
-  bool autoOver = false;
-  bool mainOver = false; // a track that can border a reverse loop, not PROG
+  static const GuardTimes times = {
+    OVERCURRENT_TICK_US, OVERCURRENT_FAST_TRIP_US,
+    MotorDriver::GUARD_SETTLE_US, MotorDriver::GUARD_REINVERT_US };
+  GuardIn in[MAX_TRACKS];
+  GuardOut out[MAX_TRACKS];
 
   // next track to read the ADC of
   for (byte i = 0; i <= lastTrack; i++) {
@@ -183,34 +187,11 @@ void IRAM_ATTR TrackManager::guardTick(unsigned long now) {
     if (track[adcTrack] && track[adcTrack]->guardActive && track[adcTrack]->canMeasureCurrent())
       break;
   }
-  FOR_EACH_TRACK(t) {
-    over[t] = track[t] && track[t]->guardPoll(t == adcTrack, now);
-    if (over[t]) {
-      anyOver = true;
-      if (track[t]->guardAuto) autoOver = true;
-      else if (!(track[t]->getMode() & TRACK_MODE_PROG)) mainOver = true;
-    }
-  }
-  if (!anyOver) return;
-
-  bool inverted = false;
-  FOR_EACH_TRACK(t) {
-    if (track[t] && track[t]->guardAuto && (over[t] || (!autoOver && mainOver)))
-      inverted |= track[t]->guardTryInvert(now);
-  }
-  if (inverted) {
-    FOR_EACH_TRACK(t) {
-      if (track[t]) {
-	track[t]->guardHoldUntil = now + MotorDriver::GUARD_SETTLE_US;
-	track[t]->guardAcc = 0;
-      }
-    }
-    return;
-  }
-  FOR_EACH_TRACK(t) {
-    if (over[t] && track[t]->guardAcc >= (long)OVERCURRENT_FAST_TRIP_US)
-      track[t]->guardCut();
-  }
+  FOR_EACH_TRACK(t)
+    if (track[t]) track[t]->guardSense(t == adcTrack, in[t]);
+  guardDecide(in, out, lastTrack + 1, now, times);
+  FOR_EACH_TRACK(t)
+    if (track[t]) track[t]->guardAct(in[t], out[t], now);
 }
 
 // <D GUARD>: what the Guard and the hardware hold for each track, then

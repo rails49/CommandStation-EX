@@ -305,11 +305,13 @@ bool MotorDriver::guardEligible() {
   return currentPin != UNUSED_PIN || (faultPin != UNUSED_PIN && !commonFaultPin);
 }
 
-// Called from TrackManager::guardISR() every OVERCURRENT_TICK_US.
-// Returns true if the track is overloaded.
-bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
+// Called from TrackManager::guardTick() every OVERCURRENT_TICK_US: what
+// the hardware says now, and the Guard's state of this track.
+void IRAM_ATTR MotorDriver::guardSense(bool readADC, GuardIn &in) {
+  in.active = guardActive;
+  in.acc = guardAcc;
   if (!guardActive)
-    return false;
+    return;
   if (readADC && currentPin != UNUSED_PIN) { // keep sample fresh for when we arm
     int raw = ADCee::readFromGuard(currentPin);
     if (raw >= 0) { // negative if ADC was busy
@@ -317,40 +319,36 @@ bool IRAM_ATTR MotorDriver::guardPoll(bool readADC, unsigned long now) {
       guardLastRaw = raw < 0 ? -raw : raw;
     }
   }
-  if ((long)(now - guardHoldUntil) < 0)
-    return false;
-  bool fault = false;
+  in.isAuto = guardAuto;
+  in.isProg = guardProg;
   if (faultPin != UNUSED_PIN && !commonFaultPin)
-    fault = invertFault ? isHIGH(fastFaultPin) : isLOW(fastFaultPin);
-  // Current is ignored during inrush. tripValue is the limit the main
-  // loop has in force, which is raised during ack, join and PROGBOOST.
-  // The current of a PROG track is left to the main loop: NMRA S-9.2.3
-  // limits it to 250mA sustained for more than 100ms, and an ack pulse
-  // may be higher for 6ms.
-  bool over = fault || (currentPin != UNUSED_PIN && !guardProg
-			&& (long)(now - guardArmAt) >= 0 && guardLastRaw >= tripValue);
-  if (over) {
-    guardAcc += OVERCURRENT_TICK_US;
-    guardEventFault = fault;
-  } else if (guardAcc > (long)OVERCURRENT_TICK_US) {
-    guardAcc -= OVERCURRENT_TICK_US;
-  } else {
-    guardAcc = 0;
-  }
-  return over;
+    in.fault = invertFault ? isHIGH(fastFaultPin) : isLOW(fastFaultPin);
+  // tripValue is the limit the main loop has in force, which is raised
+  // during ack, join and PROGBOOST.
+  in.currentOver = currentPin != UNUSED_PIN && guardLastRaw >= tripValue;
+  in.lastRaw = guardLastRaw;
+  in.armAt = guardArmAt;
+  in.holdUntil = guardHoldUntil;
+  in.hasReversed = guardHasInverted;
+  in.lastReversal = guardLastInvert;
 }
 
-// Invert a reverse loop track if that was not done just before.
-bool IRAM_ATTR MotorDriver::guardTryInvert(unsigned long now) {
-  if (!guardActive || !guardAuto)
-    return false;
-  if (now - guardLastInvert < GUARD_REINVERT_US)
-    return false;
-  guardLastInvert = now;
-  guardHasInverted = true;
-  invertOutput();
-  guardEvent |= GUARD_INVERTED;
-  return true;
+// Called from TrackManager::guardTick() with what guardDecide() made of
+// guardSense(): do it.
+void IRAM_ATTR MotorDriver::guardAct(const GuardIn &in, const GuardOut &out, unsigned long now) {
+  guardAcc = out.acc;
+  if (out.hold)
+    guardHoldUntil = now + GUARD_SETTLE_US;
+  if (out.reverse) {
+    guardLastInvert = now;
+    guardHasInverted = true;
+    invertOutput();
+    guardEvent |= GUARD_INVERTED;
+  }
+  if (out.cut) {
+    guardEventFault = in.fault;
+    guardCut();
+  }
 }
 
 // Switch off power from interrupt context. This does what
