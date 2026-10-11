@@ -31,7 +31,10 @@ class FakeMirror:
 
     def __init__(self, guard_reply=GUARD_REPLY, replies=None):
         self.guard_reply = guard_reply
-        self.replies = replies or {}  # command -> lines, for a check's script
+        # command -> lines, for a check's script; a list of them is played
+        # one per time the command comes, the last one repeated
+        self.replies = {command: list(reply) if isinstance(reply, list)
+                        else reply for command, reply in (replies or {}).items()}
         self.server = socket.create_server(("127.0.0.1", 0))
         self.port = self.server.getsockname()[1]
         self.received = []
@@ -52,14 +55,20 @@ class FakeMirror:
                 *done, buf = buf.split(b"\n")
                 for line in done:
                     self.received.append(line.decode())
-                    if line == b"<=>":
+                    if line in self.replies:
+                        conn.sendall(self.reply(line))
+                    elif line == b"<=>":
                         conn.sendall(b"<= A MAIN>\n<= D MAIN A>\n")
                         threading.Event().wait(0.05)
                         conn.sendall(b"<p1 A>\n")
                     elif line == b"<D GUARD>":
                         conn.sendall(self.guard_reply)
-                    elif line in self.replies:
-                        conn.sendall(self.replies[line])
+
+    def reply(self, line):
+        reply = self.replies[line]
+        if isinstance(reply, list):
+            return reply.pop(0) if len(reply) > 1 else reply[0]
+        return reply
 
     def close(self):
         self.server.close()
@@ -250,6 +259,85 @@ class NoCutTest(unittest.TestCase):
         mirror, code, out = self.check(replies)
         self.assertEqual(code, 1)
         self.assertIn("FAIL <p0 D> after NONE", out)
+
+
+# What <=> answers after reports' commands when it names D from the hardware
+# invert flag: inverted after <= D INV, normal after <= D MAIN_AUTO.
+REPORTS = {
+    b"<= D MAIN_AUTO>": b"<= D MAIN A>\n",
+    b"<= D INV>": b"<= D MAIN A I>\n",
+    b"<=>": [b"<= A MAIN>\n<= D MAIN A I>\n", b"<= A MAIN>\n<= D MAIN A>\n"],
+}
+
+
+class ReportsTest(unittest.TestCase):
+    def check(self, replies):
+        mirror = FakeMirror(replies=replies)
+        self.addCleanup(mirror.close)
+        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+                         "reports"])
+        return mirror, code, out
+
+    def test_d_reads_main_a_i_inverted_and_main_a_after_main_auto(self):
+        mirror, code, out = self.check(REPORTS)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(mirror.received, [
+            "<= D MAIN_AUTO>", "<= D INV>", "<=>", "<= D MAIN_AUTO>", "<=>"])
+        self.assertIn("reports: passed", out)
+
+    def test_a_report_from_the_mode_word_fails(self):
+        # INV set on the mode, but the name taken from AUTO alone
+        replies = dict(REPORTS)
+        replies[b"<=>"] = b"<= A MAIN>\n<= D MAIN A>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <=> reports <= D MAIN A I>", out)
+
+
+# What the mirror shows for a loco crossing D's gap with the wrong Polarity:
+# the Guard reverses D, and the main loop broadcasts D's state line and then
+# the diagnostic (ADR-0005).
+TRAIN = [
+    b"<p1 D>",
+    b"<= D MAIN A I>",
+    b"<p1 A>",
+    b"<p1 D>",
+    b"<* TRACK D INVERT (fast) *>",
+]
+
+
+class ReversalBroadcastTest(unittest.TestCase):
+    def check(self, train):
+        reply = b"".join(line + b"\n" for line in train)
+        mirror = FakeMirror(replies={b"<= D MAIN_AUTO>": b"<= D MAIN A>\n",
+                                     b"<1 D>": reply})
+        self.addCleanup(mirror.close)
+        return run(["--port", str(mirror.port), "--window", "0.2",
+                    "reversal-broadcast", "--wait", "0.2"])
+
+    def test_state_line_next_to_the_reversal(self):
+        code, out = self.check(TRAIN)
+        self.assertEqual(code, 0, out)
+        self.assertIn("reversal-broadcast: passed", out)
+
+    def test_state_line_after_the_diagnostic_passes_too(self):
+        code, out = self.check([TRAIN[0], TRAIN[4], TRAIN[1]])
+        self.assertEqual(code, 0, out)
+
+    def test_diagnostic_alone_fails(self):
+        code, out = self.check([TRAIN[0], TRAIN[4]])
+        self.assertEqual(code, 1)
+        self.assertIn("reversal-broadcast: FAILED", out)
+
+    def test_state_line_of_an_earlier_event_fails(self):
+        code, out = self.check([TRAIN[1], b"<* TRACK D ALERT 900mA *>",
+                                TRAIN[4]])
+        self.assertEqual(code, 1)
+
+    def test_no_reversal_fails(self):
+        code, out = self.check(TRAIN[:4])
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL a Reversal of D was seen", out)
 
 
 class TableTest(unittest.TestCase):
