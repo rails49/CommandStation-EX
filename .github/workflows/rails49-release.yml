@@ -32,6 +32,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The Guard's per-tick decision, compiled with the host compiler. A
+      # broken Reversal or Overload rule stops the release here.
+      - name: Test the Guard
+        run: rails49/test-guard.sh
+
       - uses: arduino/setup-arduino-cli@v2
 
       - name: Install the ESP32 core
