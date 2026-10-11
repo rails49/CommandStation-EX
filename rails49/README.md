@@ -52,6 +52,14 @@ back for half a second (`--window`), broadcasts to all clients included:
 
     uv run rails49/check.py send '<=>'
 
+`guard` sends `<D GUARD>` and prints what the Guard and the hardware hold: one
+line per track (mode, invert flag, invert bit read back from the GPIO register,
+whether the Guard watches it, accumulator, time since its last Reversal, trip
+value), then the Guard's ticks in the last second and its longest tick, reset
+by the read. It changes nothing on the layout:
+
+    uv run rails49/check.py guard
+
 Every other subcommand is one check of #9 or #10; `--help` lists them. A check
 changes track modes and power, so run one only with the user's OK. A new check
 is one entry in the `CHECKS` table. `python3 -B -m unittest rails49/test_check.py`
