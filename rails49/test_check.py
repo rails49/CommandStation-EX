@@ -340,6 +340,57 @@ class ReversalBroadcastTest(unittest.TestCase):
         self.assertIn("FAIL a Reversal of D was seen", out)
 
 
+# <D GUARD> on a fresh boot, then after <JG D 300>: D's trip value follows
+# at once, read back through the ADC's raw counts.
+GUARD_REPLY_D_300 = GUARD_REPLY.replace(
+    b"last=5321ms trip=1200/1999mA", b"last=5321ms trip=180/299mA")
+TRIP = {
+    b"<JG>": b"<jG 2000 2000 2000 2000>\n",
+    b"<JG D 300>": b"<jG 2000 2000 2000 300>\n",
+    b"<JG D 2000>": b"<jG 2000 2000 2000 2000>\n",
+    b"<D GUARD>": [GUARD_REPLY, GUARD_REPLY_D_300],
+}
+
+
+class TripFollowsJgTest(unittest.TestCase):
+    def check(self, guard_replies):
+        replies = dict(TRIP)
+        replies[b"<D GUARD>"] = guard_replies
+        mirror = FakeMirror(replies=replies)
+        self.addCleanup(mirror.close)
+        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+                         "trip-follows-jg"])
+        return mirror, code, out
+
+    def test_every_track_has_a_trip_value_and_d_follows_jg(self):
+        mirror, code, out = self.check(TRIP[b"<D GUARD>"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual(mirror.received, [
+            "<JG>", "<D GUARD>", "<JG D 300>", "<D GUARD>", "<JG D 2000>"])
+        self.assertIn("trip-follows-jg: passed", out)
+
+    def test_a_stale_trip_value_fails_and_the_limit_is_restored(self):
+        mirror, code, out = self.check([GUARD_REPLY])
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL D trips at 1999mA", out)
+        self.assertEqual(mirror.received[-1], "<JG D 2000>")
+
+    def test_a_track_without_a_trip_value_at_boot_fails(self):
+        # the scratch value before the main loop's first pass over A
+        unset = GUARD_REPLY.replace(b"last=- trip=1200/1999mA",
+                                    b"last=- trip=0/0mA")
+        mirror, code, out = self.check([unset, GUARD_REPLY_D_300])
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL A has a trip value", out)
+        self.assertNotIn("<JG D 300>", mirror.received)
+
+    def test_a_build_without_trip_values_fails(self):
+        old = GUARD_REPLY.replace(b" trip=1200/1999mA", b"")
+        mirror, code, out = self.check([old])
+        self.assertEqual(code, 1)
+        self.assertIn("trip-follows-jg: FAILED", out)
+
+
 class TableTest(unittest.TestCase):
     def test_a_check_and_its_arguments_come_from_the_table_alone(self):
         seen = {}

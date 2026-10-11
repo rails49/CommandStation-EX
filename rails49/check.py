@@ -254,10 +254,16 @@ def reversal_broadcast(st: Station, args):
 
 
 def trip_follows_jg(st: Station, args):
-    """A limit set with <JG> is the Guard's trip value at once."""
+    """Every track has a trip value, and a limit set with <JG> is the
+    Guard's trip value at once. Run first after a boot to see the former."""
     before = gauges(st.send("<JG>"))
     index = ord(TRACK) - ord("A")
     expect(len(before) > index, f"<JG> reports a limit for {TRACK}")
+    tracks = parse_guard(st.send("<D GUARD>"))
+    expect(bool(tracks), "<D GUARD> reports the tracks")
+    for t in tracks.values():
+        expect(bool(t.trip) and bool(t.trip_ma),
+               f"{t.track} has a trip value, {t.trip_ma}mA ({t.trip} raw)")
     try:
         st.send(f"<JG {TRACK} {args.ma}>")
         guard = parse_guard(st.send("<D GUARD>"))
