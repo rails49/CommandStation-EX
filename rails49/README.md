@@ -11,13 +11,15 @@ based on, the suffix counts builds of this fork on top of it.
 
 Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
 
-1. builds `config.rails49.h` against ESP32 core 2.0.17;
-2. writes the tag into `GITHUB_SHA.h`, so the station's `<s>` banner names the
+1. runs `rails49/test-guard.sh`, the native test of the Guard's per-tick
+   decision, and stops if it fails;
+2. builds `config.rails49.h` against ESP32 core 2.0.17;
+3. writes the tag into `GITHUB_SHA.h`, so the station's `<s>` banner names the
    build that is on it;
-3. merges the bootloader, partition table, boot_app0 and application into one
+4. merges the bootloader, partition table, boot_app0 and application into one
    image, flashable at offset `0x0`;
-4. attaches that image to a GitHub release;
-5. pushes `ghcr.io/rails49/commandstation-ex:<tag>`, which carries the image and
+5. attaches that image to a GitHub release;
+6. pushes `ghcr.io/rails49/commandstation-ex:<tag>`, which carries the image and
    `esptool`.
 
 Running the workflow by hand from the Actions tab builds the same image and
