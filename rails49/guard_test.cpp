@@ -146,6 +146,29 @@ TEST(a_reversal_that_does_not_help_ends_in_an_overload) {
   EXPECT(!s.reversed[D]);
 }
 
+TEST(a_reversed_track_is_not_reversed_again_within_the_lockout) {
+  Station s;
+  s.in[C].active = false;
+  s.in[D].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+  s.in[D].fault = false;
+  // past the hold, inside the lockout: a short shorter than the fast
+  // trip time neither reverses nor cuts
+  while (s.now - s.in[D].lastReversal < times.reinvertUs / 2) s.tick();
+  s.in[D].fault = true;
+  for (int i = 0; i < 5; i++) {
+    s.tick();
+    EXPECT(!s.anyAction());
+  }
+  s.in[D].fault = false;
+  // past the lockout the next short reverses again
+  while (s.now - s.in[D].lastReversal < times.reinvertUs) s.tick();
+  s.in[D].fault = true;
+  s.tick();
+  EXPECT(s.reversed[D]);
+}
+
 TEST(current_is_ignored_in_the_inrush_window) {
   Station s;
   s.powerOn(A);
@@ -294,6 +317,7 @@ int main() {
   RUN(nothing_happens_during_the_hold_after_a_reversal);
   RUN(a_fault_on_a_plain_track_is_an_overload_after_the_fast_trip_time);
   RUN(a_reversal_that_does_not_help_ends_in_an_overload);
+  RUN(a_reversed_track_is_not_reversed_again_within_the_lockout);
   RUN(current_is_ignored_in_the_inrush_window);
   RUN(current_on_a_prog_track_is_left_to_the_main_loop);
   RUN(a_fault_on_a_prog_track_is_an_overload_and_reverses_no_loop);
