@@ -158,8 +158,9 @@ void TrackManager::Setup(const FSH * shieldname,
 // - If inverting does not help, a track which has been overloaded for
 //   OVERCURRENT_FAST_TRIP_US gets its power cut.
 // The guard watches the fault pin from power on, the current only
-// OVERCURRENT_INRUSH_MS after power on (also after each retry), as
-// decoders charge their capacitors. On a PROG track it watches only the
+// OVERCURRENT_INRUSH_MS after power on, as decoders charge their
+// capacitors, and on a retry after a Fault. A retry after a current
+// Overload gets no Inrush Window (ADR-0006). On a PROG track it watches only the
 // fault pin. checkPowerOverload() picks up the events of the guard and
 // does the messages and the retry logic.
 volatile uint32_t TrackManager::guardTicks = 0;

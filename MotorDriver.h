@@ -57,9 +57,10 @@ enum TRACK_MODE : byte {
 };
 
 // How long high current is tolerated after a track is powered on, to let
-// decoders charge their capacitors (inrush). Lower values shorten the time
-// a persistent short gets power at each retry, but locos with large
-// capacitors may then not start. On ESP32 the fast overcurrent guard
+// decoders charge their capacitors (inrush). A retry after an Overload
+// measured by current gets none of it, a retry after a Fault does.
+// Lower values shorten the time a short seen as a Fault gets power at each
+// retry, but locos with large capacitors may then not start. On ESP32 the fast overcurrent guard
 // still watches the fault pin during this time. Unit: milliseconds.
 #ifndef OVERCURRENT_INRUSH_MS
 #define OVERCURRENT_INRUSH_MS 100
@@ -70,7 +71,8 @@ enum TRACK_MODE : byte {
 // and cuts power from interrupt context once a track has been overloaded
 // for OVERCURRENT_FAST_TRIP_US, instead of waiting for the main loop.
 // It watches the fault pin from power on, and the current from
-// OVERCURRENT_INRUSH_MS after power on. On a PROG track it watches the
+// OVERCURRENT_INRUSH_MS after power on, at once on a retry after a
+// current Overload. On a PROG track it watches the
 // fault pin only. Disable it with
 // DISABLE_FAST_OVERCURRENT. See TrackManager::guardISR().
 #if defined(ARDUINO_ARCH_ESP32) && !defined(DISABLE_FAST_OVERCURRENT)
@@ -305,7 +307,7 @@ class MotorDriver {
       isProgTrack = on;
     }
     void checkPowerOverload(bool useProgLimit, byte trackno);
-    void enterOverload();
+    void enterOverload(bool byCurrent);
     inline void setTrackLetter(char c) {
       trackLetter = c;
     };
@@ -457,6 +459,12 @@ class MotorDriver {
     int progTripValue;
     bool limitSet = false; // set by <JG>, replaces the prog limit
     bool overloadBroadcast = false; // <p0 x> went out for an Overload, <p1 x> is due
+    // The cause of the last Overload: current, or a Fault. A retry into a
+    // current Overload gets no Inrush Window, see ADR-0006.
+    bool overloadByCurrent = false;
+    // Power came on without an Inrush Window: the main loop does not ignore
+    // the current of this ALERT. Cleared once the track is ON.
+    bool noInrushWindow = false;
     int  lastCurrent; //temp value
     // Sum and count of samples for getCurrentRawMean(). 4095 * 16384 fits
     // in 32 bits.
