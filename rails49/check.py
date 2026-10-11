@@ -24,7 +24,8 @@ import re
 import socket
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Callable
 
 TRACK = "D"  # the AUTO track under test on rails49
 OTHER = "A"  # a plain MAIN track
@@ -95,6 +96,12 @@ class Station:
         self.sock = socket.create_connection((host, port), timeout=5)
         self.buf = b""
         self.collect(self.window)  # drop what was in flight
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.sock.close()
 
     def collect(self, seconds: float) -> list[str]:
         lines = []
@@ -223,13 +230,29 @@ def send(st: Station, args):
     st.send(args.command)
 
 
+@dataclass
+class Check:
+    """A subcommand: the function it runs and its own arguments, each as
+    (name or flags, add_argument keywords)."""
+
+    fn: Callable[[Station, argparse.Namespace], None]
+    args: list[tuple[str, dict]] = field(default_factory=list)
+    asserts: bool = True  # False: only prints, so no "passed"
+
+
+WAIT = ("--wait", dict(type=float, default=30.0,
+                       help="seconds to collect while the user acts"))
+
 CHECKS = {
-    "polarity-survives": polarity_survives,
-    "reports": reports,
-    "no-cut": no_cut,
-    "overload-broadcast": overload_broadcast,
-    "reversal-broadcast": reversal_broadcast,
-    "trip-follows-jg": trip_follows_jg,
+    "send": Check(send, [("command", dict(help="for example '<=>'"))],
+                  asserts=False),
+    "polarity-survives": Check(polarity_survives),
+    "reports": Check(reports),
+    "no-cut": Check(no_cut),
+    "overload-broadcast": Check(overload_broadcast, [WAIT]),
+    "reversal-broadcast": Check(reversal_broadcast, [WAIT]),
+    "trip-follows-jg": Check(trip_follows_jg, [
+        ("--ma", dict(type=int, default=300, help="limit to set, mA"))]),
 }
 
 
@@ -240,30 +263,24 @@ def main(argv=None) -> int:
     ap.add_argument("--window", type=float, default=0.5,
                     help="seconds to collect lines after each command")
     sub = ap.add_subparsers(dest="check", required=True)
-    for name, fn in CHECKS.items():
-        p = sub.add_parser(name, help=fn.__doc__)
-        p.set_defaults(fn=fn)
-        if name in ("overload-broadcast", "reversal-broadcast"):
-            p.add_argument("--wait", type=float, default=30.0,
-                           help="seconds to collect while the user acts")
-        if name == "trip-follows-jg":
-            p.add_argument("--ma", type=int, default=300,
-                           help="limit to set, mA")
-    p = sub.add_parser("send", help=send.__doc__)
-    p.add_argument("command")
-    p.set_defaults(fn=send)
+    for name, check in CHECKS.items():
+        p = sub.add_parser(name, help=check.fn.__doc__)
+        p.set_defaults(check_entry=check)
+        for flag, kw in check.args:
+            p.add_argument(flag, **kw)
     args = ap.parse_args(argv)
 
+    check = args.check_entry
     try:
-        st = Station(args.host, args.port, args.window)
-        args.fn(st, args)
+        with Station(args.host, args.port, args.window) as st:
+            check.fn(st, args)
     except CheckFailed as e:
         print(f"{args.check}: FAILED: {e}")
         return 1
     except OSError as e:
         print(f"{args.check}: cannot talk to {args.host}:{args.port}: {e}")
         return 2
-    if args.check != "send":
+    if check.asserts:
         print(f"{args.check}: passed")
     return 0
 
