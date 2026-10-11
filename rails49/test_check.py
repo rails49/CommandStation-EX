@@ -29,8 +29,9 @@ class FakeMirror:
     station does, and after <=> broadcasts a line a moment later, as another
     client's command would."""
 
-    def __init__(self, guard_reply=GUARD_REPLY):
+    def __init__(self, guard_reply=GUARD_REPLY, replies=None):
         self.guard_reply = guard_reply
+        self.replies = replies or {}  # command -> lines, for a check's script
         self.server = socket.create_server(("127.0.0.1", 0))
         self.port = self.server.getsockname()[1]
         self.received = []
@@ -57,6 +58,8 @@ class FakeMirror:
                         conn.sendall(b"<p1 A>\n")
                     elif line == b"<D GUARD>":
                         conn.sendall(self.guard_reply)
+                    elif line in self.replies:
+                        conn.sendall(self.replies[line])
 
     def close(self):
         self.server.close()
@@ -121,6 +124,51 @@ class GuardTest(unittest.TestCase):
                          "guard"])
         self.assertEqual(code, 1)
         self.assertIn("guard: FAILED", out)
+
+
+# What the mirror shows for a wire across D's rails held through one retry:
+# the Guard cuts, the retry is cut again, then the wire is gone.
+SHORT = [
+    b"<* TRACK D INVERT (fast) *>",
+    b"<= D MAIN A I>",
+    b"<* TRACK D FAST OVERLOAD 3100mA. Pause 40ms *>",
+    b"<p0 D>",
+    b"<* TRACK D POWER RESTORE (after 40ms) *>",
+    b"<* TRACK D FAST OVERLOAD 3100mA. Pause 80ms *>",
+    b"<p0 D>",
+    b"<* TRACK D POWER RESTORE (after 80ms) *>",
+    b"<* TRACK D NORMAL (after 20ms/21ms) 12mA *>",
+    b"<p1 D>",
+]
+
+
+class OverloadBroadcastTest(unittest.TestCase):
+    def check(self, short):
+        reply = b"".join(line + b"\n" for line in short)
+        mirror = FakeMirror(replies={b"<1 D>": reply})
+        self.addCleanup(mirror.close)
+        return run(["--port", str(mirror.port), "--window", "0.2",
+                    "overload-broadcast", "--wait", "0.2"])
+
+    def test_p0_on_every_entry_and_p1_when_back_on(self):
+        code, out = self.check(SHORT)
+        self.assertEqual(code, 0, out)
+        self.assertIn("overload-broadcast: passed", out)
+
+    def test_an_entry_without_p0_fails(self):
+        code, out = self.check(SHORT[:6] + SHORT[7:])  # the retry's <p0 D>
+        self.assertEqual(code, 1)
+        self.assertIn("overload-broadcast: FAILED", out)
+
+    def test_no_p1_after_the_short_fails(self):
+        code, out = self.check(SHORT[:-1])
+        self.assertEqual(code, 1)
+        self.assertIn("overload-broadcast: FAILED", out)
+
+    def test_p0_late_fails(self):
+        # <p0 D> only after the first retry: the host read D as on meanwhile
+        code, out = self.check(SHORT[:3] + SHORT[4:])
+        self.assertEqual(code, 1)
 
 
 class TableTest(unittest.TestCase):
