@@ -11,6 +11,7 @@ is local:
 
     uv run rails49/check.py polarity-survives
     uv run rails49/check.py trip-follows-jg
+    uv run rails49/check.py guard
     uv run rails49/check.py --host 127.0.0.1 --port 2560 send "<D GUARD>"
 
 The checks change track modes and power on the layout. Running one is the
@@ -68,6 +69,26 @@ def parse_guard(lines: list[str]) -> dict[str, GuardLine]:
                 int(m["trip"]) if m["trip"] else None,
                 int(m["tripma"]) if m["tripma"] else None)
     return result
+
+
+@dataclass
+class GuardCounters:
+    """The last line of <D GUARD>: the Guard's ticks in the last second and
+    its longest tick, both reset by the read."""
+
+    ticks_per_s: int
+    max_us: int
+
+
+GUARD_COUNTERS_RE = re.compile(r"GUARD ticks=(?P<ticks>\d+)/s max=(?P<max>\d+)us")
+
+
+def parse_guard_counters(lines: list[str]) -> GuardCounters | None:
+    for line in lines:
+        m = GUARD_COUNTERS_RE.search(line)
+        if m:
+            return GuardCounters(int(m["ticks"]), int(m["max"]))
+    return None
 
 
 def gauges(lines: list[str]) -> list[int]:
@@ -225,6 +246,14 @@ def trip_follows_jg(st: Station, args):
         st.send(f"<JG {TRACK} {before[index]}>")
 
 
+def guard(st: Station, args):
+    """Send <D GUARD> and print what the Guard and the hardware hold."""
+    lines = st.send("<D GUARD>")
+    expect(bool(parse_guard(lines)), "<D GUARD> reports the tracks")
+    expect(parse_guard_counters(lines) is not None,
+           "<D GUARD> reports the Guard's ticks and longest tick")
+
+
 def send(st: Station, args):
     """Send one command and print every line for the window."""
     st.send(args.command)
@@ -246,6 +275,7 @@ WAIT = ("--wait", dict(type=float, default=30.0,
 CHECKS = {
     "send": Check(send, [("command", dict(help="for example '<=>'"))],
                   asserts=False),
+    "guard": Check(guard),
     "polarity-survives": Check(polarity_survives),
     "reports": Check(reports),
     "no-cut": Check(no_cut),
