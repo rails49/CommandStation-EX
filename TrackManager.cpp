@@ -158,9 +158,20 @@ void TrackManager::Setup(const FSH * shieldname,
 // decoders charge their capacitors. On a PROG track it watches only the
 // fault pin. checkPowerOverload() picks up the events of the guard and
 // does the messages and the retry logic.
+volatile uint32_t TrackManager::guardTicks = 0;
+volatile uint32_t TrackManager::guardMaxTickUs = 0;
+unsigned long TrackManager::guardReportedAt = 0;
+
 void IRAM_ATTR TrackManager::guardISR() {
+  unsigned long start = micros();
+  guardTick(start);
+  uint32_t took = micros() - start;
+  guardTicks = guardTicks + 1;
+  if (took > guardMaxTickUs) guardMaxTickUs = took;
+}
+
+void IRAM_ATTR TrackManager::guardTick(unsigned long now) {
   static byte adcTrack = 0;
-  unsigned long now = micros();
   bool over[MAX_TRACKS];
   bool anyOver = false;
   bool autoOver = false;
@@ -200,6 +211,29 @@ void IRAM_ATTR TrackManager::guardISR() {
     if (over[t] && track[t]->guardAcc >= (long)OVERCURRENT_FAST_TRIP_US)
       track[t]->guardCut();
   }
+}
+
+// <D GUARD>: what the Guard and the hardware hold for each track, then
+// the Guard's ticks per second and its longest tick since the last call.
+void TrackManager::reportGuard() {
+  unsigned long nowMs = millis();
+  unsigned long nowUs = micros();
+  FOR_EACH_TRACK(t) {
+    MotorDriver *md = track[t];
+    if (md == NULL) continue;
+    char last[12] = "-";
+    if (md->guardHasInverted)
+      snprintf(last, sizeof(last), "%lums", (nowUs - md->guardLastInvert) / 1000UL);
+    DIAG(F("GUARD %c %S inv=%d gpio=%d active=%d acc=%lus last=%s"),
+	 'A' + t, getModeName(md->getMode()), md->isInverted(), md->readInvertBit(),
+	 md->guardActive, (long)md->guardAcc, last);
+  }
+  uint32_t ticks = __atomic_exchange_n(&guardTicks, 0, __ATOMIC_SEQ_CST);
+  uint32_t maxUs = __atomic_exchange_n(&guardMaxTickUs, 0, __ATOMIC_SEQ_CST);
+  unsigned long elapsedMs = nowMs - guardReportedAt;
+  guardReportedAt = nowMs;
+  unsigned long perSecond = elapsedMs ? (unsigned long)((uint64_t)ticks * 1000UL / elapsedMs) : 0;
+  DIAG(F("GUARD ticks=%L/s max=%Lus"), perSecond, (unsigned long)maxUs);
 }
 #endif
 

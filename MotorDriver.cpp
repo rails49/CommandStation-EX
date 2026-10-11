@@ -346,6 +346,7 @@ bool IRAM_ATTR MotorDriver::guardTryInvert(unsigned long now) {
   if (now - guardLastInvert < GUARD_REINVERT_US)
     return false;
   guardLastInvert = now;
+  guardHasInverted = true;
   invertOutput();
   guardEvent |= GUARD_INVERTED;
   return true;

@@ -99,6 +99,9 @@ class TrackManager {
     static TRACK_MODE getMode(byte t);
     static int16_t returnDCAddr(byte t);
     static const FSH* getModeName(TRACK_MODE Mode);
+#ifdef FAST_OVERCURRENT_GUARD
+    static void reportGuard();
+#endif
 
     static int16_t joinRelay;
     static bool progTrackSyncMain;  // true when prog track is a siding switched to main
@@ -118,6 +121,10 @@ class TrackManager {
     static void applyDCSpeed(byte t);
 #ifdef FAST_OVERCURRENT_GUARD
     static void guardISR();
+    static void guardTick(unsigned long now);
+    static volatile uint32_t guardTicks;    // ticks since reportGuard()
+    static volatile uint32_t guardMaxTickUs; // longest tick since reportGuard()
+    static unsigned long guardReportedAt;    // millis() of the last reportGuard()
 #endif
 
     static int16_t trackDCAddr[MAX_TRACKS];  // dc address if TRACK_MODE_DC
