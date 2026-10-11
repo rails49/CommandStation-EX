@@ -29,6 +29,7 @@
 #include <wiring_private.h>
 
 #include "TemplateForEnums.h"
+#include "GuardDecision.h"
 // use powers of two so we can do logical and/or on the track modes in if clauses.
 // For example TRACK_MODE_DC_INV is (TRACK_MODE_DC|TRACK_MODIFIER_INV)
 enum TRACK_MODE : byte {
@@ -381,8 +382,8 @@ class MotorDriver {
     // A reverse loop track is not inverted again within this time
     static const unsigned long GUARD_REINVERT_US = 20000UL;
     bool guardEligible();
-    bool guardPoll(bool readADC, unsigned long now);
-    bool guardTryInvert(unsigned long now);
+    void guardSense(bool readADC, GuardIn &in);
+    void guardAct(const GuardIn &in, const GuardOut &out, unsigned long now);
     void guardCut();
     volatile bool guardActive = false;         // power is on and track is a guarded DCC track
     volatile bool guardAuto = false;           // track is a reverse loop (AUTO) track
