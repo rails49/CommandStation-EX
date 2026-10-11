@@ -21,6 +21,9 @@ Track power management. After power commands a power state is broadcast to all t
 <1 JOIN>           Power on MAIN and PROG track but send main track data on both.
 <0>                Power off all tracks 
 <0 MAIN|PROG>      Power off main or prog track
+<G seconds>        Host timeout, 1..3600 s: power off all tracks and stop all
+                   locos unless <G seconds> is sent again within that time.
+                   No reply. <G 0> turns it off. Off at boot.
 
 Basic manual loco control
 <t locoid speed direction>  Throttle loco. 
