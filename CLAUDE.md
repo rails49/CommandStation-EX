@@ -3,6 +3,8 @@
 Read `CONTEXT.md` for the vocabulary and `docs/adr/` for decisions before
 touching track power or current protection.
 
+gate: ./scripts/check.sh
+
 ## Agent skills
 
 ### Issue tracker
