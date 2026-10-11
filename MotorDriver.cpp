@@ -532,6 +532,10 @@ void MotorDriver::throttleInrush(bool on) {
     return;
   if ( !(trackMode & (TRACK_MODE_MAIN | TRACK_MODE_PROG | TRACK_MODE_EXT | TRACK_MODE_BOOST)))
     return;
+#ifdef FAST_OVERCURRENT_GUARD
+  if (guardActive) // no brake PWM on a track the guard watches, see ADR-0004
+    on = false;
+#endif
   byte duty = on ? 207 : 0; // duty of 81% at 62500Hz this gives pauses of 3usec
 #if defined(ARDUINO_ARCH_ESP32)
   if(on) {
