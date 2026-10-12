@@ -40,6 +40,8 @@ Decided:
 ## Consequences
 
 - A client that knows only upstream's mode names sees `MAIN A I`.
+- A BOOST track reports its hardware Polarity too, since a Reversal flips its
+  output as on MAIN: an inverted BOOST AUTO track reads `BOOST A I` (#31).
 - During a persistent short the retries broadcast a pair of power lines each,
   at 40 ms, 80 ms and so on up to 10 s apart.
 - The host script sends one of `<= D MAIN_AUTO>` or `<= D MAIN_AUTO_INV>` per

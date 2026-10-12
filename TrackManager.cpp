@@ -29,6 +29,7 @@
 #include "MotorDriver.h"
 #include "DCCTimer.h"
 #include "TrackModeChange.h"
+#include "TrackModeReport.h"
 #include "DIAG.h"
 #include "CommandDistributor.h"
 #include "DCCEXParser.h"
@@ -300,6 +301,11 @@ static_assert(TRACK_MODE_CHANGE_MODIFIERS == ((byte)TRACK_MODIFIER_INV | (byte)T
               "TrackModeChange.h disagrees with MotorDriver.h on INV and AUTO");
 static_assert(TRACK_MODE_CHANGE_DC == TRACK_MODE_DC,
               "TrackModeChange.h disagrees with MotorDriver.h on DC");
+static_assert(TRACK_MODE_REPORT_INV == TRACK_MODIFIER_INV,
+              "TrackModeReport.h disagrees with MotorDriver.h on INV");
+static_assert((TRACK_MODE_REPORT_HARDWARE_POLARITY & ((byte)TRACK_MODE_MAIN | (byte)TRACK_MODE_BOOST))
+                == ((byte)TRACK_MODE_MAIN | (byte)TRACK_MODE_BOOST),
+              "TrackModeReport.h disagrees with MotorDriver.h on MAIN and BOOST");
 
 // Everything a change of Track Mode does to the track's pins, its DC and
 // PROG handling and the waveform, before power is cut.
@@ -589,8 +595,8 @@ const FSH* TrackManager::getModeName(TRACK_MODE tm) {
   else if(tm & TRACK_MODE_EXT)
     modename=F("EXT");
   else if(tm & TRACK_MODE_BOOST) {
-        if(tm & TRACK_MODIFIER_AUTO)
-      modename=F("BOOST A");
+    if (tm & TRACK_MODIFIER_AUTO)
+      modename=(tm & TRACK_MODIFIER_INV) ? F("BOOST A I") : F("BOOST A");
     else if (tm & TRACK_MODIFIER_INV)
       modename=F("BOOST I");
     else
@@ -605,13 +611,11 @@ const FSH* TrackManager::getModeName(TRACK_MODE tm) {
   return modename;
 }
 
-// The mode as reported. On a MAIN track INV is the Polarity the output
-// has now, which a Reversal changes, not the one the host set (ADR-0005).
+// The mode as reported. On a MAIN or BOOST track INV is the Polarity the
+// output has now, which a Reversal changes, not the one the host set
+// (ADR-0005). The rule is reportedModeWord() in TrackModeReport.h.
 TRACK_MODE TrackManager::reportedMode(byte t) {
-  TRACK_MODE tm = track[t]->getMode();
-  if (tm & TRACK_MODE_MAIN)
-    tm = (TRACK_MODE)((tm & ~TRACK_MODIFIER_INV) | (track[t]->isInverted() ? TRACK_MODIFIER_INV : 0));
-  return tm;
+  return (TRACK_MODE)reportedModeWord(track[t]->getMode(), track[t]->isInverted());
 }
 
 // null stream means send to commandDistributor for broadcast
