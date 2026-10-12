@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 #
-# Gate: compile the station's firmware, config.rails49.h against the ESP32
-# core, as rails49-release.yml does. Installs arduino-cli and the core on
-# first use. Builds a copy of the checkout, so a local config.h is untouched.
+# Gate: run the native Guard test and the check.py tests, then compile the
+# station's firmware, config.rails49.h against the ESP32 core, as
+# rails49-release.yml does. Installs arduino-cli and the core on first use.
+# Builds a copy of the checkout, so a local config.h is untouched.
 
 set -eu
+
+if command -v "${CXX:-c++}" >/dev/null; then
+  rails49/test-guard.sh
+else
+  echo "guard: skipped, no host C++ compiler"
+fi
+python3 -B -m unittest rails49/test_check.py
 
 ARDUINO_CLI_VERSION=1.1.1
 ESP32_CORE=2.0.17
