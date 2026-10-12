@@ -22,10 +22,12 @@
 // Arduino type may appear here: the native test in rails49/ compiles this
 // file with the host compiler.
 
-// cut sets the track to OVERLOAD.
+// cut sets the track to OVERLOAD. The mean is cleared on every entry, so
+// after a retry <JI> reports the samples since the retry, not the current
+// that caused the Overload (#59).
 template <class Cut>
 inline void cutForOverload(CurrentMean &mean, Cut cut) {
-  (void)mean;
+  mean.reset();
   cut();
 }
 

@@ -32,6 +32,7 @@
 #include "CommandDistributor.h"
 #include "EXRAIL2.h"
 #include "MainLoopReversal.h"
+#include "OverloadMean.h"
 #ifdef FAST_OVERCURRENT_GUARD
 #include <soc/gpio_struct.h>
 #endif
@@ -856,12 +857,12 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 }
 
 // Cut power for an Overload and tell every client: <p0 x>, on every
-// entry including retries (ADR-0005).
+// entry including retries (ADR-0005). Clears the mean <JI> reports.
 // byCurrent: the Overload was measured, not a Fault, and the retry gets
 // no Inrush Window.
 void MotorDriver::enterOverload(bool byCurrent) {
   overloadByCurrent = byCurrent;
-  setPower(POWERMODE::OVERLOAD);
+  cutForOverload(currentMean, [this]() { setPower(POWERMODE::OVERLOAD); });
   overloadBroadcast = true;
   CommandDistributor::broadcastPower();
 }
