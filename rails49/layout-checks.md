@@ -114,6 +114,6 @@ Pass: the check says `passed`, the loco runs on, and the lines show
 
 If the loco then leaves D across its other gap, that Reversal gives
 `<= D MAIN A>` the same way. Fail: a `TRACK D INVERT` line with no
-`<= D ...>` line next to it.
+`<= D ...>` line before it, back to the previous `<* ... *>` line.
 
 The lines of steps 1 and 4 go into the PR.
