@@ -31,6 +31,7 @@
 #include "TrackManager.h"
 #include "CommandDistributor.h"
 #include "EXRAIL2.h"
+#include "MainLoopReversal.h"
 #ifdef FAST_OVERCURRENT_GUARD
 #include <soc/gpio_struct.h>
 #endif
@@ -738,16 +739,19 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       } else {
 	DIAG(F("TRACK %c ALERT FAULT"), trackno + 'A');
       }
-      setPower(POWERMODE::ALERT);
-      if ((trackMode & TRACK_MODIFIER_AUTO) && (trackMode & (TRACK_MODE_MAIN|TRACK_MODE_EXT|TRACK_MODE_BOOST))
+      bool reversal = (trackMode & TRACK_MODIFIER_AUTO) && (trackMode & (TRACK_MODE_MAIN|TRACK_MODE_EXT|TRACK_MODE_BOOST))
 #ifdef FAST_OVERCURRENT_GUARD
-	  && !guardActive // then the guard interrupt does the inverting
+	&& !guardActive // then the guard interrupt does the inverting
 #endif
-	  ){
-	invertOutput();
-	TrackManager::streamTrackState(NULL, trackno); // the host learns the Polarity
-	DIAG(F("TRACK %c INVERT"), trackno + 'A');
-      }
+	;
+      // the Reversal is broadcast while the track is ON: <p1 x> (#51)
+      alertFromOn(reversal,
+		  [this, trackno]() {
+		    invertOutput();
+		    TrackManager::streamTrackState(NULL, trackno); // the host learns the Polarity
+		    DIAG(F("TRACK %c INVERT"), trackno + 'A');
+		  },
+		  [this]() { setPower(POWERMODE::ALERT); });
       break;
     }
     // all well
