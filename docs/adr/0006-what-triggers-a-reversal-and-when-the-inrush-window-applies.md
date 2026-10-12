@@ -11,8 +11,9 @@ Decided:
 
 - A current-triggered Reversal needs two consecutive over samples of that
   track. A sample under the limit resets the count. A Fault reverses at once.
-- When only a plain track is over, the AUTO track whose last current sample
-  was highest reverses. A tie goes to the lower track letter. The other AUTO
+- When no AUTO track has reached the count for a Reversal and a plain track
+  has a short, the AUTO track whose last current sample was highest
+  reverses. A tie goes to the lower track letter. The other AUTO
   track reverses only if the Fault persists past the 4 ms hold.
 - The Inrush Window applies after a host power-on and after a retry that
   follows a Fault. A retry that follows a current Overload gets no window,
