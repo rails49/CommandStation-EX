@@ -471,7 +471,8 @@ class MotorDriver {
     // current Overload gets no Inrush Window, see ADR-0006.
     bool overloadByCurrent = false;
     // Power came on without an Inrush Window: the main loop does not ignore
-    // the current of this ALERT. Cleared once the track is ON.
+    // the current of this ALERT. Set at every power-on, cleared once the
+    // track is ON, read only in ALERT.
     bool noInrushWindow = false;
     int  lastCurrent; //temp value
     // Sum and count of samples for getCurrentRawMean(). 4095 * 16384 fits
