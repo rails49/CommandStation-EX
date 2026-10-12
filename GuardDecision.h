@@ -31,6 +31,14 @@ static const uint8_t GUARD_MAX_TRACKS = 8;
 // reverses at once.
 static const uint8_t REVERSAL_SAMPLES = 2;
 
+// A track's acc on the tick its REVERSAL_SAMPLES-th consecutive over sample
+// is read, with tracks guarded tracks in the ADC round, one read per tick.
+// The Reversal is decided before the cut on the same tick, so a track
+// reverses and is not cut while this is at most the fast trip time.
+constexpr long guardReversalAccUs(long tickUs, uint8_t tracks) {
+  return (REVERSAL_SAMPLES - 1) * tracks * tickUs + tickUs;
+}
+
 // What the ISR read for one track on this tick, and the Guard's state of
 // that track as left by the previous tick.
 struct GuardIn {

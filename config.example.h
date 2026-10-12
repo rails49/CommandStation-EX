@@ -87,6 +87,7 @@ The configuration file for DCC-EX Command Station
 // programming track it watches the fault pin only. Reverse loop (AUTO)
 // tracks are inverted on the first sign of a short. If you see trips while running
 // (not at power on), raise OVERCURRENT_FAST_TRIP_US or disable the guard.
+// The build fails if it is below the time a loop needs to reverse, 900 by default.
 // #define OVERCURRENT_FAST_TRIP_US 1000
 // #define DISABLE_FAST_OVERCURRENT
 //
