@@ -252,20 +252,23 @@ void MotorDriver::setPower(POWERMODE mode) {
     // does not: a soft short would be fed for the whole window on every
     // retry. Only a retry goes to ALERT, so ON always has the window.
     bool retry = powerMode == POWERMODE::OVERLOAD && mode == POWERMODE::ALERT;
-    noInrushWindow = !guardInrushWindow(retry, overloadByCurrent);
-  } else if (mode == POWERMODE::ON || !on) {
-    noInrushWindow = false;
-  }
+    bool inrushWindow = guardInrushWindow(retry, overloadByCurrent);
+    noInrushWindow = !inrushWindow;
 #ifdef FAST_OVERCURRENT_GUARD
-  if (on && !wasOn) {
     // let inrush pass before the guard looks at the current
     unsigned long now = micros();
-    guardArmAt = noInrushWindow ? now : now + OVERCURRENT_INRUSH_MS * 1000UL;
+    guardArmAt = inrushWindow ? now + OVERCURRENT_INRUSH_MS * 1000UL : now;
     guardHoldUntil = now;
     guardAcc = 0;
     guardOverCount = 0;
     guardLastRaw = 0;
+#endif
+  } else if (mode == POWERMODE::ON) {
+    // An ALERT entered from ON gets the main loop's tolerance. The flag is
+    // read only in ALERT, and the next power-on sets it again.
+    noInrushWindow = false;
   }
+#ifdef FAST_OVERCURRENT_GUARD
   guardActive = on && guardEligible();
 #endif
   if (on) {
