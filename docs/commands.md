@@ -332,11 +332,10 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 ### Track currents: `<JI>`
 
 - **Reply:** `<jI A B C D>`, each track's current in mA: the mean of the
-  samples taken since the last `<JI>` from any client. `-1` for a track in
-  Overload.
-- **Known issue:** a read resets the mean, so two pollers split the samples
-  between them (#52). Until that is fixed, only one client may poll `<JI>`.
-  The dccex page polls it every 250 ms.
+  samples taken in the last complete 250 ms window. A read does not reset
+  it, so any number of clients may poll `<JI>` and read the same value at
+  the same moment; it changes once per window. Within 250 ms of a track
+  powering on, the mean of the samples so far. `-1` for a track in Overload.
 
 ```
 → <JI>
