@@ -46,6 +46,9 @@ to a command by its content, not by who received it.
 different command rather than get `<X>`. `<zQ>`, for example, sets vpin 81
 high.
 
+**Examples.** In the example exchanges, `→` marks a line the client sends
+and `←` a line the station sends back.
+
 **Lines to ignore.** `<@ screen row "text">` copies a line of the station's
 display. Lines not described here come from upstream features.
 
@@ -72,11 +75,11 @@ display. Lines not described here come from upstream features.
   A mode change can turn a track's power off; see `<= X MODE>`.
 
 ```
-> <1 D>
-< <p0 A>
-< <p0 B>
-< <p0 C>
-< <p1 D>
+→ <1 D>
+← <p0 A>
+← <p0 B>
+← <p0 C>
+← <p1 D>
 ```
 
 ### Power lines
@@ -99,7 +102,7 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
 
 ### Set a track mode: `<= X MODE>`
 
-| MODE | Track carries | Reported as |
+| MODE (sent) | Track carries | Reported as |
 |---|---|---|
 | `MAIN` | DCC, normal Polarity | `MAIN` |
 | `MAIN_INV` | DCC, inverted Polarity | `MAIN I` |
@@ -111,6 +114,9 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
 | `INV` | adds inverted Polarity to the current mode | |
 | `AUTO` | adds Reversal on a short to the current mode | |
 
+- **Sent and reported names:** `MAIN_INV` and `MAIN I` are the same mode.
+  The station takes only the name in the MODE column and reports only the
+  one in the "Reported as" column; `<= X MAIN I>` gets `<X>`.
 - **Parameters:** X is a track letter. The track must exist. Use `INV` and
   `AUTO` only on a MAIN track: on EXT they get `<X>`. They only add; to clear
   INV or AUTO, send the whole mode, such as `<= X MAIN_AUTO>`.
@@ -128,12 +134,12 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
   does not exist, or `INV`/`AUTO` on an EXT track.
 
 ```
-> <= D MAIN_AUTO_INV>
-< <= D MAIN A I>
-< <p0 A>
-< <p0 B>
-< <p0 C>
-< <p1 D>
+→ <= D MAIN_AUTO_INV>
+← <= D MAIN A I>
+← <p0 A>
+← <p0 B>
+← <p0 C>
+← <p1 D>
 ```
 
 `<= D MAIN_AUTO>` followed by `<= D INV>` gives the same result in two
@@ -154,9 +160,13 @@ commands. Neither cuts power.
   took the limit.
 
 ```
-> <JG C 1500>
-< <jG 2000 250 1500 500>
+→ <JG C 1500>
+← <jG 2000 250 1500 500>
+→ <JG ALL 1000>
+← <jG 1000 1000 1000 1000>
 ```
+
+`<JG ALL mA>` sets the PROG track too.
 
 ### When a track overloads
 
@@ -195,13 +205,11 @@ and functions of every loco in the table.
 - **Broadcast:** `<l …>` for the loco, if its speed or direction changed.
 - **Error:** `<X>` for a value out of range or a full loco table.
 - **Notes:** with four parameters the first is ignored and a `<T …>` Reply is
-  added. That form is deprecated; send three. While the stop lock is on
-  (`<!P>`), the command is taken and Broadcast but the loco stays stopped
-  until `<!R>`.
+  added. That form is deprecated; send three.
 
 ```
-> <t 3 25 1>
-< <l 3 0 154 0>
+→ <t 3 25 1>
+← <l 3 0 154 0>
 ```
 
 ### Ask for a loco's state: `<t cab>`
@@ -235,20 +243,20 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 - **Error:** `<X>` for cab ≤ 0, fn < 0 or a full loco table.
 
 ```
-> <F 3 0 1>
-< <l 3 0 154 1>
+→ <F 3 0 1>
+← <l 3 0 154 1>
 ```
 
-### Emergency stop: `<!>`, `<!P>`, `<!R>`, `<!Q>`
+### Emergency stop: `<!>`
 
-| Command | Effect | Reply | Broadcast |
-|---|---|---|---|
-| `<!>` | Stops every loco now. Each keeps its direction and stays at emergency stop until its next `<t>`. | none | `<l cab 0 1 fn>` or `<l cab 0 129 fn>` for each loco in the table |
-| `<!P>` | Stop lock: stops every loco and keeps it stopped. `<t>` and `<F>` are taken but no speed reaches the track. | none | `<!PAUSED>`, if the lock was off |
-| `<!R>` | Releases the lock. Every loco resumes the speed it was last given. | none | `<!RESUMED>`, if the lock was on |
-| `<!Q>` | Asks whether the lock is on. | `<!PAUSED>` or `<!RESUMED>` | none |
-
-- **Error:** none; any other parameter acts as `<!>`.
+- **Effect:** stops every loco now. Each keeps its direction and stays at
+  emergency stop until its next `<t>`.
+- **Reply:** none.
+- **Broadcast:** `<l cab 0 1 fn>` or `<l cab 0 129 fn>` for each loco in the
+  table.
+- **Error:** none. A parameter other than P, R or Q acts as `<!>`. `<!P>`,
+  `<!R>` and `<!Q>` are upstream's stop lock; the translator sends none of
+  them.
 
 ## Accessories
 
@@ -270,7 +278,7 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
   `<a (L-1)/4+1 (L-1)%4 act>`, with act 1 for thrown.
 
 ```
-> <a 3 2 1>
+→ <a 3 2 1>
 ```
 
 ### Signals and other extended accessories: `<A addr value>`
@@ -284,7 +292,7 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 - **Error:** `<X>` for a value out of range or a parameter count other than 2.
 
 ```
-> <A 5 2>
+→ <A 5 2>
 ```
 
 ## Checking the station
@@ -298,13 +306,13 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
    sensor. This build defines neither, so none are sent.
 
 ```
-> <s>
-< <iDCC-EX V-5.6.4 / ESP32 / EXCSB1_WITH_EX8874 G-v5.6.4-rails49.17>
-< <p0 A>
-< <p0 B>
-< <p0 C>
-< <p0 D>
-< <p0>
+→ <s>
+← <iDCC-EX V-5.6.4 / ESP32 / EXCSB1_WITH_EX8874 G-v5.6.4-rails49.17>
+← <p0 A>
+← <p0 B>
+← <p0 C>
+← <p0 D>
+← <p0>
 ```
 
 ### Track modes: `<=>`
@@ -314,11 +322,11 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
   has now, so a reversed AUTO track reads `MAIN A I`.
 
 ```
-> <=>
-< <= A MAIN>
-< <= B PROG>
-< <= C MAIN A>
-< <= D MAIN A>
+→ <=>
+← <= A MAIN>
+← <= B PROG>
+← <= C MAIN A>
+← <= D MAIN A>
 ```
 
 ### Current Limits: `<JG>`
@@ -329,8 +337,8 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 - **Error:** `<X>` for two parameters or more than three.
 
 ```
-> <JG>
-< <jG 2000 250 1500 500>
+→ <JG>
+← <jG 2000 250 1500 500>
 ```
 
 ### Track currents: `<JI>`
@@ -343,8 +351,8 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
   The dccex page polls it every 250 ms.
 
 ```
-> <JI>
-< <jI 112 0 0 37>
+→ <JI>
+← <jI 112 0 0 37>
 ```
 
 ### Restart check: `<JM id>`, `<JM id value>`
@@ -359,8 +367,8 @@ The translator sets `<JM 32000 1>` when it connects and polls `<JM 32000>`
 every second. `<jM 32000 0>` means the station restarted.
 
 ```
-> <JM 32000>
-< <jM 32000 1>
+→ <JM 32000>
+← <jM 32000 1>
 ```
 
 ### Host Timeout: `<G n>`
@@ -400,12 +408,12 @@ every second. `<jM 32000 0>` means the station restarted.
   `v5.6.4-rails49.16`.
 
 ```
-> <D GUARD>
-< <* GUARD A MAIN inv=0 gpio=0 active=0 acc=0us last=- trip=898/1999mA *>
-< <* GUARD B PROG inv=0 gpio=0 active=0 acc=0us last=- trip=112/249mA *>
-< <* GUARD C MAIN A inv=0 gpio=0 active=0 acc=0us last=- trip=987/1499mA *>
-< <* GUARD D MAIN A inv=0 gpio=0 active=0 acc=0us last=- trip=329/499mA *>
-< <* GUARD ticks=9973/s max=8us *>
+→ <D GUARD>
+← <* GUARD A MAIN inv=0 gpio=0 active=0 acc=0us last=- trip=898/1999mA *>
+← <* GUARD B PROG inv=0 gpio=0 active=0 acc=0us last=- trip=112/249mA *>
+← <* GUARD C MAIN A inv=0 gpio=0 active=0 acc=0us last=- trip=987/1499mA *>
+← <* GUARD D MAIN A inv=0 gpio=0 active=0 acc=0us last=- trip=329/499mA *>
+← <* GUARD ticks=9973/s max=8us *>
 ```
 
 ### Diagnostics
