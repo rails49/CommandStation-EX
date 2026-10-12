@@ -145,6 +145,15 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
 `<= D MAIN_AUTO>` followed by `<= D INV>` gives the same result in two
 commands. Neither cuts power.
 
+A mode is one keyword: `<= D MAIN AUTO INV>` gets `<X>`. Each MAIN
+combination has its own keyword, so a client that knows the track's mode
+needs neither `INV` nor `AUTO`; they are for a client that does not.
+
+`<= A MAIN>` followed by `<= A AUTO>` ends in `MAIN_AUTO`, as
+`<= A MAIN_AUTO>` does, and cuts power in the same cases. Between the two
+commands A is plain MAIN, so a short then is an Overload, not a Reversal,
+and each command Broadcasts its own lines. Send the one keyword.
+
 ### Set a Current Limit: `<JG X mA>`, `<JG ALL mA>`
 
 - **Parameters:** X is a track letter, or `ALL` for every track. mA is
