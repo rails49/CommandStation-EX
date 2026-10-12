@@ -517,8 +517,12 @@ bool TrackManager::setTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr
       track[trackToSet]->setPower(POWERMODE::OFF);
     }
     streamTrackState(NULL,trackToSet);
-    // A track entering or leaving PROG may change the limit <JG> reports.
-    refreshTripValues();
+    // Set the trip value of every track whose mode changed, this one and one
+    // that lost PROG to it. A track that leaves PROG with power on, as on a
+    // join, is then watched by the Guard against its own limit, not the prog
+    // limit, from the Guard's next tick.
+    FOR_EACH_TRACK(t)
+      if (track[t]) track[t]->setTripValue(useProgLimit(t));
     if ((mode ^ oldmode) & TRACK_MODE_PROG) broadcastGauges();
     //DIAG(F("TrackMode=%d"),mode);
     return true; 
@@ -673,14 +677,6 @@ void TrackManager::loop() {
 bool TrackManager::useProgLimit(byte t) {
   bool dontLimitProg=DCCACK::isActive() || progTrackSyncMain || progTrackBoosted;
   return dontLimitProg ? false : (bool)(track[t]->getMode() & TRACK_MODE_PROG);
-}
-
-// Bring every track's trip value up to date after the limit in force
-// changed, so the Guard trips at it from its next tick rather than after
-// the main loop's next pass over the track.
-void TrackManager::refreshTripValues() {
-  FOR_EACH_TRACK(t)
-    if (track[t]) track[t]->setTripValue(useProgLimit(t));
 }
 
 MotorDriver * TrackManager::getProgDriver() {
@@ -898,7 +894,6 @@ void TrackManager::setJoin(bool joined) {
   }
 #endif
   progTrackSyncMain=joined;
-  refreshTripValues();
   if (joinRelay!=UNUSED_PIN) digitalWrite(joinRelay,joined?HIGH:LOW);
 }
 
