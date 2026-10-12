@@ -96,10 +96,6 @@ in answer to `<s>`:
 
 Read the per-track lines; lines 2 and 3 are summaries of them.
 
-- **Known issue:** a Reversal on a track the Guard does not watch (`active=0`
-  in `<D GUARD>` while the track is on) Broadcasts `<p0 X>` though the track
-  stays on, and no `<p1 X>` follows (#51).
-
 ### Set a track mode: `<= X MODE>`
 
 | MODE (sent) | Track carries | Reported as |
