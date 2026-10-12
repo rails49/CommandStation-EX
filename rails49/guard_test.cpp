@@ -381,12 +381,33 @@ TEST(an_auto_track_over_by_current_reverses_whatever_the_plain_track_sees) {
     Station s;
     s.sampleAndWait(C, 900);
     s.in[A].fault = aFault;
-    s.sampleAndWait(D, 5000);
+    // with a Fault on A, D's first sample over makes it the pick
+    if (!aFault) s.sampleAndWait(D, 5000);
     s.sample(D, 5000);
     s.tick();
     EXPECT(s.reversed[D]);
     EXPECT(!s.in[C].hasReversed);
   }
+}
+
+TEST(one_sample_over_on_a_loop_does_not_block_the_pick_for_a_plain_track_short) {
+  Station s;
+  s.sampleAndWait(C, 300);
+  s.in[A].fault = true;
+  s.sample(D, 1500);
+  s.tick();
+  EXPECT(s.reversed[D]);
+  EXPECT(!s.reversed[C]);
+}
+
+TEST(one_sample_over_on_a_loop_lets_the_loop_with_the_higher_sample_reverse) {
+  Station s;
+  s.sampleAndWait(C, 2000);
+  s.in[A].fault = true;
+  s.sample(D, 1500);
+  s.tick();
+  EXPECT(s.reversed[C]);
+  EXPECT(!s.reversed[D]);
 }
 
 int main() {
@@ -418,6 +439,8 @@ int main() {
   RUN(an_auto_track_that_is_itself_over_reverses_whatever_the_plain_track_sees);
   RUN(a_loop_that_cannot_reverse_is_passed_over_whatever_its_sample);
   RUN(an_auto_track_over_by_current_reverses_whatever_the_plain_track_sees);
+  RUN(one_sample_over_on_a_loop_does_not_block_the_pick_for_a_plain_track_short);
+  RUN(one_sample_over_on_a_loop_lets_the_loop_with_the_higher_sample_reverse);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;
