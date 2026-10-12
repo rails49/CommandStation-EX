@@ -7,7 +7,9 @@
 # modifier-only change, and rails49/track_report_test.cpp against
 # TrackModeReport.h, the rule reportedMode() uses, and
 # rails49/main_loop_reversal_test.cpp against MainLoopReversal.h, the order
-# checkPowerOverload() follows for a Reversal. CXX overrides the compiler.
+# checkPowerOverload() follows for a Reversal, and
+# rails49/current_mean_test.cpp against CurrentMean.h, the mean <JI>
+# reports. CXX overrides the compiler.
 
 set -eu
 
@@ -30,3 +32,7 @@ ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
 ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
   -o "$tmp/main_loop_reversal_test" "$here/main_loop_reversal_test.cpp"
 "$tmp/main_loop_reversal_test"
+
+${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
+  -o "$tmp/current_mean_test" "$here/current_mean_test.cpp"
+"$tmp/current_mean_test"
