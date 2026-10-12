@@ -24,11 +24,6 @@
 #define GUARD_DECISION_ATTR
 #endif
 
-// A Reversal by current needs this many consecutive samples over the limit,
-// so one ADC glitch or motor start spike does not flip a loop. A Fault
-// reverses at once.
-static const uint8_t REVERSAL_SAMPLES = 2;
-
 static inline bool GUARD_DECISION_ATTR held(const GuardIn &in, unsigned long now) {
   return (long)(now - in.holdUntil) < 0;
 }
