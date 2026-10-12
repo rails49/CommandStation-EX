@@ -578,11 +578,17 @@ bool TrackManager::parseEqualSign(Print *stream, int16_t params, int16_t p[])
 	params==2  && p[1]=="BOOST_AUTO"_hk)               // <= id BOOST_AUTO>
         return setTrackMode(p[0],TRACK_MODE_BOOST_AUTO);
 #endif
-    if (params==2  && p[1]=="AUTO"_hk)                     // <= id AUTO>
+    // An EXT track carries neither AUTO nor INV: its signal pin is an input,
+    // so neither changes the rails.
+    if (params==2  && p[1]=="AUTO"_hk) {                   // <= id AUTO>
+      if (track[p[0]]->getMode() & TRACK_MODE_EXT) return false;
       return setTrackMode(p[0], track[p[0]]->getMode() | TRACK_MODIFIER_AUTO);
+    }
 
-    if (params==2  && p[1]=="INV"_hk)                      // <= id INV>
+    if (params==2  && p[1]=="INV"_hk) {                    // <= id INV>
+      if (track[p[0]]->getMode() & TRACK_MODE_EXT) return false;
       return setTrackMode(p[0], track[p[0]]->getMode() | TRACK_MODIFIER_INV);
+    }
 
     if (params==3  && p[1]=="DC"_hk && p[2]>0)             // <= id DC cab>
         return setTrackMode(p[0],TRACK_MODE_DC,p[2]);
