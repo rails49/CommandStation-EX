@@ -251,16 +251,14 @@ def reversal_broadcast(st: Station, args):
     at = next((i for i, line in enumerate(lines)
                if f"TRACK {TRACK} INVERT" in line), None)
     expect(at is not None, f"a Reversal of {TRACK} was seen")
-    # The state line comes just before the diagnostic (ADR-0005), with only
-    # the power lines its broadcast adds between them; no other diagnostic.
-    start, end = at, at + 1
+    # The state line comes before the diagnostic (ADR-0005), with only the
+    # power lines its broadcast adds between them; no other diagnostic.
+    start = at
     while start > 0 and not lines[start - 1].startswith("<*"):
         start -= 1
-    while end < len(lines) and not lines[end].startswith("<*"):
-        end += 1
-    near = track_states(lines[start:at] + lines[at + 1:end], TRACK)
-    expect(any(s in ("MAIN A", "MAIN A I") for s in near),
-           f"<= {TRACK} MAIN A[ I]> broadcast next to the Reversal")
+    before = track_states(lines[start:at], TRACK)
+    expect(any(s in ("MAIN A", "MAIN A I") for s in before),
+           f"<= {TRACK} MAIN A[ I]> broadcast before the Reversal")
 
 
 def trip_follows_jg(st: Station, args):

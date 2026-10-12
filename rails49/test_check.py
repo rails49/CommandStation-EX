@@ -335,9 +335,10 @@ class ReversalBroadcastTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("reversal-broadcast: passed", out)
 
-    def test_state_line_after_the_diagnostic_passes_too(self):
+    def test_state_line_only_after_the_diagnostic_fails(self):
         code, out = self.check([TRAIN[0], TRAIN[4], TRAIN[1]])
-        self.assertEqual(code, 0, out)
+        self.assertEqual(code, 1)
+        self.assertIn("reversal-broadcast: FAILED", out)
 
     def test_diagnostic_alone_fails(self):
         code, out = self.check([TRAIN[0], TRAIN[4]])
