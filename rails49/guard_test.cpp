@@ -43,13 +43,17 @@ struct Station {
     in[C].isAuto = in[D].isAuto = true;
   }
 
-  // Power comes on now, as the driver arms the Guard: from OFF by the
-  // host, or from OVERLOAD as a retry after a Fault or a current Overload.
-  void powerOn(int t, bool fromOverload = false, bool byCurrent = false,
+  // How power comes on: the host powers the track ON from OFF or from
+  // OVERLOAD, or the main loop retries, moving it from OVERLOAD to ALERT.
+  enum How { HOST_FROM_OFF, HOST_FROM_OVERLOAD, RETRY };
+
+  // Power comes on now, as the driver arms the Guard. byCurrent: the last
+  // Overload was a current Overload, not a Fault.
+  void powerOn(int t, How how = HOST_FROM_OFF, bool byCurrent = false,
                unsigned long inrushUs = 100000) {
     in[t].active = true;
     in[t].armAt =
-        guardInrushWindow(fromOverload, byCurrent) ? now + inrushUs : now;
+        guardInrushWindow(how == RETRY, byCurrent) ? now + inrushUs : now;
   }
 
   // The ADC reads track t on the next tick. Until it reads it again, the
@@ -184,21 +188,28 @@ TEST(current_is_ignored_in_the_inrush_window) {
 
 TEST(a_host_power_on_keeps_the_inrush_window) {
   Station s;
-  s.powerOn(A, false, false);
+  s.powerOn(A, Station::HOST_FROM_OFF);
+  s.sample(A, 5000);
+  EXPECT(s.ticksUntil(&Station::cut, A, 999) == 1000);
+}
+
+TEST(a_host_power_on_from_overload_after_a_current_overload_keeps_the_inrush_window) {
+  Station s;
+  s.powerOn(A, Station::HOST_FROM_OVERLOAD, true);
   s.sample(A, 5000);
   EXPECT(s.ticksUntil(&Station::cut, A, 999) == 1000);
 }
 
 TEST(a_retry_after_a_fault_keeps_the_inrush_window) {
   Station s;
-  s.powerOn(A, true, false);
+  s.powerOn(A, Station::RETRY, false);
   s.sample(A, 5000);
   EXPECT(s.ticksUntil(&Station::cut, A, 999) == 1000);
 }
 
 TEST(a_retry_after_a_current_overload_is_cut_within_the_fast_trip_time) {
   Station s;
-  s.powerOn(A, true, true);
+  s.powerOn(A, Station::RETRY, true);
   s.sample(A, 5000);
   EXPECT(s.ticksUntil(&Station::cut, A, 20) == 10);
 }
@@ -386,6 +397,7 @@ int main() {
   RUN(a_reversed_track_is_not_reversed_again_within_the_lockout);
   RUN(current_is_ignored_in_the_inrush_window);
   RUN(a_host_power_on_keeps_the_inrush_window);
+  RUN(a_host_power_on_from_overload_after_a_current_overload_keeps_the_inrush_window);
   RUN(a_retry_after_a_fault_keeps_the_inrush_window);
   RUN(a_retry_after_a_current_overload_is_cut_within_the_fast_trip_time);
   RUN(current_on_a_prog_track_is_left_to_the_main_loop);

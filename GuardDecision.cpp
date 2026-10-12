@@ -40,8 +40,8 @@ static inline bool GUARD_DECISION_ATTR canReverse(const GuardIn &in, unsigned lo
     && !(in.hasReversed && now - in.lastReversal < times.reinvertUs);
 }
 
-bool guardInrushWindow(bool fromOverload, bool overloadByCurrent) {
-  return !(fromOverload && overloadByCurrent);
+bool guardInrushWindow(bool retry, bool overloadByCurrent) {
+  return !(retry && overloadByCurrent);
 }
 
 void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t n,
