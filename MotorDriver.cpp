@@ -247,11 +247,12 @@ void MotorDriver::setPower(POWERMODE mode) {
   bool on=(mode==POWERMODE::ON || mode ==POWERMODE::ALERT);
   bool wasOn=(powerMode==POWERMODE::ON || powerMode==POWERMODE::ALERT);
   if (on && !wasOn) {
-    // Power comes on. A host power-on and a retry after a Fault get the
-    // Inrush Window, a retry into a current Overload does not: a soft
-    // short would be fed for the whole window on every retry.
-    noInrushWindow = !guardInrushWindow(powerMode == POWERMODE::OVERLOAD,
-                                        overloadByCurrent);
+    // Power comes on. A host power-on, also from OVERLOAD, and a retry
+    // after a Fault get the Inrush Window, a retry into a current Overload
+    // does not: a soft short would be fed for the whole window on every
+    // retry. Only a retry goes to ALERT, so ON always has the window.
+    bool retry = powerMode == POWERMODE::OVERLOAD && mode == POWERMODE::ALERT;
+    noInrushWindow = !guardInrushWindow(retry, overloadByCurrent);
   } else if (mode == POWERMODE::ON || !on) {
     noInrushWindow = false;
   }
