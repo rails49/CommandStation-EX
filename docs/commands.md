@@ -94,8 +94,8 @@ in answer to `<s>`:
 Read the per-track lines; lines 2 and 3 are summaries of them.
 
 - **Known issue:** a Reversal on a track the Guard does not watch (`active=0`
-  in `<D GUARD>`) Broadcasts `<p0 X>` though the track stays on, and no
-  `<p1 X>` follows (#51).
+  in `<D GUARD>` while the track is on) Broadcasts `<p0 X>` though the track
+  stays on, and no `<p1 X>` follows (#51).
 
 ### Set a track mode: `<= X MODE>`
 
@@ -299,7 +299,7 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 
 ```
 > <s>
-< <iDCC-EX V-5.6.4 / ESP32 / EXCSB1_WITH_EX8874 G-v5.6.4-rails49.16>
+< <iDCC-EX V-5.6.4 / ESP32 / EXCSB1_WITH_EX8874 G-v5.6.4-rails49.17>
 < <p0 A>
 < <p0 B>
 < <p0 C>
@@ -388,7 +388,8 @@ every second. `<jM 32000 0>` means the station restarted.
   - MODE is the mode the host set; a Reversal does not change it.
   - inv is the Polarity the station holds; gpio is the invert bit read back
     from the hardware.
-  - active is 1 if the Guard watches the track.
+  - active is 1 while the Guard watches the track. It is 0 while the track
+    is off, and on a track the Guard cannot watch.
   - acc is the time over the limit counted so far.
   - last is the time since the Guard's last Reversal of this track, `-` if it
     never reversed it.
@@ -397,6 +398,15 @@ every second. `<jM 32000 0>` means the station restarted.
     both since the last `<D GUARD>`.
 - **Error:** `<X>` on builds without the Guard, and on rails49 builds up to
   `v5.6.4-rails49.16`.
+
+```
+> <D GUARD>
+< <* GUARD A MAIN inv=0 gpio=0 active=0 acc=0us last=- trip=898/1999mA *>
+< <* GUARD B PROG inv=0 gpio=0 active=0 acc=0us last=- trip=112/249mA *>
+< <* GUARD C MAIN A inv=0 gpio=0 active=0 acc=0us last=- trip=987/1499mA *>
+< <* GUARD D MAIN A inv=0 gpio=0 active=0 acc=0us last=- trip=329/499mA *>
+< <* GUARD ticks=9973/s max=8us *>
+```
 
 ### Diagnostics
 
