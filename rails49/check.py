@@ -12,6 +12,7 @@ is local:
     uv run rails49/check.py polarity-survives
     uv run rails49/check.py trip-follows-jg
     uv run rails49/check.py guard
+    uv run rails49/check.py ext-refuses-modifiers
     uv run rails49/check.py --host 127.0.0.1 --port 2560 send "<D GUARD>"
 
 The checks change track modes and power on the layout. Running one is the
@@ -104,6 +105,15 @@ def track_states(lines: list[str], track: str) -> list[str]:
     prefix = f"<= {track} "
     return [line[len(prefix):-1] for line in lines
             if line.startswith(prefix) and line.endswith(">")]
+
+
+def mode_command(state: str) -> str:
+    """The <= x ...> mode word that sets a mode reported as state, so
+    "MAIN A I" gives MAIN_AUTO_INV; a DC track's cab is kept."""
+    base, *rest = state.split()
+    if base in ("DC", "DCX"):
+        return state
+    return "_".join([base] + [{"A": "AUTO", "I": "INV"}[m] for m in rest])
 
 
 def power_lines(lines: list[str], track: str) -> list[str]:
@@ -278,6 +288,23 @@ def trip_follows_jg(st: Station, args):
         st.send(f"<JG {TRACK} {before[index]}>")
 
 
+def ext_refuses_modifiers(st: Station, args):
+    """<= x AUTO> and <= x INV> on an EXT track are refused, and the track
+    stays EXT."""
+    before = track_states(st.send("<=>"), TRACK)
+    expect(len(before) == 1, f"<=> reports {TRACK}")
+    try:
+        st.send(f"<= {TRACK} EXT>")
+        for modifier in ("AUTO", "INV"):
+            lines = st.send(f"<= {TRACK} {modifier}>")
+            expect("<X>" in lines, f"<X> for <= {TRACK} {modifier}>")
+        states = track_states(st.send("<=>"), TRACK)
+        expect(states == ["EXT"], f"<=> reports <= {TRACK} EXT>")
+    finally:
+        print(f"restoring {TRACK} to {before[0]}")
+        st.send(f"<= {TRACK} {mode_command(before[0])}>")
+
+
 def guard(st: Station, args):
     """Send <D GUARD> and print what the Guard and the hardware hold."""
     lines = st.send("<D GUARD>")
@@ -313,6 +340,7 @@ CHECKS = {
     "no-cut": Check(no_cut),
     "overload-broadcast": Check(overload_broadcast, [WAIT]),
     "reversal-broadcast": Check(reversal_broadcast, [WAIT]),
+    "ext-refuses-modifiers": Check(ext_refuses_modifiers),
     "trip-follows-jg": Check(trip_follows_jg, [
         ("--ma", dict(type=int, default=300, help="limit to set, mA"))]),
 }
