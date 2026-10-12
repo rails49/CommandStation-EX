@@ -110,19 +110,14 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
 | `MAIN_AUTO_INV` | DCC, inverted Polarity, Reversal on a short | `MAIN A I` |
 | `PROG` | the Programming Track | `PROG` |
 | `NONE` (or `OFF`) | nothing; power stays off | `NONE` |
-| `EXT` | an external DCC signal | `EXT` |
-| `INV` | adds inverted Polarity to the current mode | |
-| `AUTO` | adds Reversal on a short to the current mode | |
 
 - **Sent and reported names:** `MAIN_INV` and `MAIN I` are the same mode.
   The station takes only the name in the MODE column and reports only the
   one in the "Reported as" column; `<= X MAIN I>` gets `<X>`.
-- **Parameters:** X is a track letter. The track must exist. Use `INV` and
-  `AUTO` only on a MAIN track: on EXT they get `<X>`. They only add; to clear
-  INV or AUTO, send the whole mode, such as `<= X MAIN_AUTO>`.
-- **Power:** a change of the base mode (MAIN, PROG, NONE, EXT) turns the
-  track's power off; send `<1 X>` to turn it back on. A change of INV or AUTO
-  alone, or a repeat of the current mode, keeps power and signal on.
+- **Parameters:** X is a track letter. The track must exist.
+- **Power:** a change between MAIN, PROG and NONE turns the track's power
+  off; send `<1 X>` to turn it back on. A change among the four MAIN modes,
+  or a repeat of the current mode, keeps power and signal on.
   `<= X MAIN_AUTO>` on a reversed track sets normal Polarity without a cut.
 - **One Programming Track:** setting PROG on a track moves the previous PROG
   track to NONE.
@@ -130,8 +125,8 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
 - **Broadcast:** `<= X NAME>` (the "Reported as" column), then the power
   lines. A track that lost PROG gets `<= Y NONE>`. When a track enters or
   leaves PROG, `<jG …>` follows, since its Current Limit can change with it.
-- **Error:** `<X>` for an unknown mode, a letter outside A–H, a track that
-  does not exist, or `INV`/`AUTO` on an EXT track.
+- **Error:** `<X>` for an unknown mode, a letter outside A–H, or a track
+  that does not exist.
 
 ```
 → <= D MAIN_AUTO_INV>
@@ -141,18 +136,6 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
 ← <p0 C>
 ← <p1 D>
 ```
-
-`<= D MAIN_AUTO>` followed by `<= D INV>` gives the same result in two
-commands. Neither cuts power.
-
-A mode is one keyword: `<= D MAIN AUTO INV>` gets `<X>`. Each MAIN
-combination has its own keyword, so a client that knows the track's mode
-needs neither `INV` nor `AUTO`; they are for a client that does not.
-
-`<= A MAIN>` followed by `<= A AUTO>` ends in `MAIN_AUTO`, as
-`<= A MAIN_AUTO>` does, and cuts power in the same cases. Between the two
-commands A is plain MAIN, so a short then is an Overload, not a Reversal,
-and each command Broadcasts its own lines. Send the one keyword.
 
 ### Set a Current Limit: `<JG X mA>`, `<JG ALL mA>`
 
