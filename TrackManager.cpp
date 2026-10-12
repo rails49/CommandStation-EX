@@ -172,6 +172,15 @@ void TrackManager::Setup(const FSH * shieldname,
 // Overload gets no Inrush Window (ADR-0006). On a PROG track it watches only the
 // fault pin. checkPowerOverload() picks up the events of the guard and
 // does the messages and the retry logic.
+
+// A loop's short seen only by current must reach REVERSAL_SAMPLES samples
+// before the cut, with every track in the ADC round (ADR-0006).
+static_assert(guardReversalAccUs(OVERCURRENT_TICK_US, TrackManager::MAX_TRACKS)
+              <= OVERCURRENT_FAST_TRIP_US,
+              "OVERCURRENT_FAST_TRIP_US is too short for a Reversal by current: "
+              "raise it to at least (REVERSAL_SAMPLES - 1) * MAX_TRACKS * "
+              "OVERCURRENT_TICK_US + OVERCURRENT_TICK_US");
+
 volatile uint32_t TrackManager::guardTicks = 0;
 volatile uint32_t TrackManager::guardMaxTickUs = 0;
 unsigned long TrackManager::guardReportedAt = 0;
