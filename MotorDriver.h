@@ -30,6 +30,7 @@
 
 #include "TemplateForEnums.h"
 #include "GuardDecision.h"
+#include "CurrentMean.h"
 // use powers of two so we can do logical and/or on the track modes in if clauses.
 // For example TRACK_MODE_DC_INV is (TRACK_MODE_DC|TRACK_MODIFIER_INV)
 enum TRACK_MODE : byte {
@@ -261,9 +262,10 @@ class MotorDriver {
 #endif
     };
     int  getCurrentRaw(bool fromISR=false);
-    // Mean of the samples the overload check has taken since the last call.
-    // A single getCurrentRaw() is one instantaneous ADC read, which scatters
-    // widely around the real current while a loco is running.
+    // Mean of the samples the overload check took in the last complete
+    // 250 ms window, see CurrentMean.h. A read does not reset it. A single
+    // getCurrentRaw() is one instantaneous ADC read, which scatters widely
+    // around the real current while a loco is running.
     int  getCurrentRawMean();
     unsigned int raw2mA( int raw);
     unsigned int mA2raw( unsigned int mA);
@@ -422,12 +424,7 @@ class MotorDriver {
       lastCurrent = getCurrentRaw();
       if (lastCurrent < 0)
 	lastCurrent = -lastCurrent;
-      currentSum += lastCurrent;
-      if (++currentSamples == CURRENT_SAMPLES_MAX) {
-	// nobody has asked for a while: keep a mean weighted to recent samples
-	currentSum >>= 1;
-	currentSamples >>= 1;
-      }
+      currentMean.add(lastCurrent, micros());
       return lastCurrent >= tripValue;
     };
     // side effect sets lastCurrent
@@ -473,11 +470,7 @@ class MotorDriver {
     // track is ON, read only in ALERT.
     bool noInrushWindow = false;
     int  lastCurrent; //temp value
-    // Sum and count of samples for getCurrentRawMean(). 4095 * 16384 fits
-    // in 32 bits.
-    static const unsigned int CURRENT_SAMPLES_MAX = 16384;
-    uint32_t currentSum = 0;
-    unsigned int currentSamples = 0;
+    CurrentMean currentMean; // for getCurrentRawMean()
     // The limit in force in raw counts, read by the Guard. Set from the
     // Board Limit in the constructor, on every change of the limit, and by
     // the main loop on each pass.

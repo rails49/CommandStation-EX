@@ -580,10 +580,8 @@ void MotorDriver::throttleInrush(bool on) {
 #endif
 }
 int MotorDriver::getCurrentRawMean() {
-  if (currentSamples == 0) return getCurrentRaw(false);
-  int mean = currentSum / currentSamples;
-  currentSum = 0;
-  currentSamples = 0;
+  int mean;
+  if (!currentMean.mean(mean)) return getCurrentRaw(false);
   return mean;
 }
 
@@ -720,8 +718,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
     lastPowerMode = POWERMODE::OFF;
     overloadBroadcast = false;
     power_sample_overload_wait = POWER_SAMPLE_OVERLOAD_WAIT;
-    currentSum = 0;
-    currentSamples = 0;
+    currentMean.reset();
     break;
   }
 
