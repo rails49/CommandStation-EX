@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 #
-# Gate: run the native Guard test, then the check.py tests alongside a
-# compile of the station's firmware, config.rails49.h against the ESP32 core,
-# as rails49-release.yml does. Installs uv, arduino-cli and the core on first
-# use. Builds a copy of the checkout, so a local config.h is untouched.
+# Gate: fail on a tracked file that .gitignore ignores, run the native Guard
+# test, then the check.py tests alongside a compile of the station's
+# firmware, config.rails49.h against the ESP32 core, as rails49-release.yml
+# does. Installs uv, arduino-cli and the core on first use. Builds a copy of
+# the checkout, so a local config.h is untouched.
 
 set -eu
+
+if git ls-files -ci --exclude-standard | grep .; then
+  echo "tracked files that .gitignore ignores: git rm --cached them"
+  exit 1
+fi
 
 if ${CXX:-c++} --version >/dev/null 2>&1; then
   rails49/test-guard.sh
