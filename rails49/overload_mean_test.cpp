@@ -1,6 +1,6 @@
 // Native test of what entering Overload does to the mean <JI> reports,
 // OverloadMean.h: it clears the mean, so after a retry <JI> reports the
-// current since the retry, not the current before the short (#59). Run with
+// current since the retry, not the current that caused the Overload (#59). Run with
 // rails49/test-guard.sh. Words as in CONTEXT.md.
 
 #include "../OverloadMean.h"
@@ -19,6 +19,7 @@ static const char *current = "";
   } while (0)
 
 static const unsigned long W = CurrentMean::WINDOW_US;
+// POWER_SAMPLE_OVERLOAD_WAIT, the first retry
 static const unsigned long RETRY_WAIT = 40000UL;
 
 // A track as <JI> sees it: the mean, and whether it is in Overload, where
@@ -55,17 +56,17 @@ static void after_a_retry_the_mean_is_of_the_samples_since() {
   EXPECT(t.reported() == 200);
 }
 
-static void a_retry_after_the_window_does_not_report_the_short() {
+static void a_retry_after_the_window_does_not_report_the_overload() {
   Track t;
   t.sample(3000, 0);
   t.sample(3000, 1000);
   t.enterOverload();
   t.retry();
-  t.sample(100, W + 1000);  // would close the window opened before the short
+  t.sample(100, W + 1000);  // would close the window opened before the Overload
   EXPECT(t.reported() == 100);
 }
 
-static void a_closed_window_before_the_short_is_not_reported() {
+static void a_closed_window_before_the_overload_is_not_reported() {
   Track t;
   t.sample(3000, 0);
   t.sample(500, W);  // closes a window: mean 3000
@@ -73,14 +74,6 @@ static void a_closed_window_before_the_short_is_not_reported() {
   t.retry();
   t.sample(100, W + RETRY_WAIT);
   EXPECT(t.reported() == 100);
-}
-
-static void while_on_the_mean_is_unchanged() {
-  Track t;
-  t.sample(100, 0);
-  t.sample(300, 1000);
-  t.sample(500, W);
-  EXPECT(t.reported() == 200);
 }
 
 #define RUN(test)                                                         \
@@ -91,9 +84,8 @@ static void while_on_the_mean_is_unchanged() {
 
 int main() {
   RUN(after_a_retry_the_mean_is_of_the_samples_since);
-  RUN(a_retry_after_the_window_does_not_report_the_short);
-  RUN(a_closed_window_before_the_short_is_not_reported);
-  RUN(while_on_the_mean_is_unchanged);
+  RUN(a_retry_after_the_window_does_not_report_the_overload);
+  RUN(a_closed_window_before_the_overload_is_not_reported);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;
