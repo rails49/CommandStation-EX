@@ -24,6 +24,7 @@
 // See TrackManager::guardTick() for the ISR that feeds it, and ADR-0006.
 
 // Tracks the function handles at most, the station's MAX_TRACKS.
+// TrackManager.cpp fails the build if MAX_TRACKS is larger.
 static const uint8_t GUARD_MAX_TRACKS = 8;
 
 // A Reversal by current needs this many consecutive samples over the limit,
