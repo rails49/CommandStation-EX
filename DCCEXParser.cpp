@@ -683,7 +683,6 @@ void DCCEXParser::parseOne(Print *stream, byte *com, RingStream * ringStream)
             else if (p[0]=="PROG"_hk) { // <0 PROG>
           TrackManager::setJoin(false);
 	      TrackManager::progTrackBoosted=false;  // Prog track boost mode will not outlive prog track off
-	      TrackManager::refreshTripValues();
 	      TrackManager::setTrackPower(TRACK_MODE_PROG, POWERMODE::OFF);
             }
 #endif
@@ -1308,7 +1307,6 @@ bool DCCEXParser::parseC(Print *stream, int16_t params, int16_t p[]) {
 #ifndef DISABLE_PROG
     case "PROGBOOST"_hk:
         TrackManager::progTrackBoosted=true;
-        TrackManager::refreshTripValues();
 	    return true;
 #endif
     case "RESET"_hk:
