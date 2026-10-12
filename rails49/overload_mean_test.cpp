@@ -1,7 +1,7 @@
 // Native test of what entering Overload does to the mean <JI> reports,
 // OverloadMean.h: it clears the mean, so after a retry <JI> reports the
-// current since the retry, not the current that caused the Overload (#59). Run with
-// rails49/test-guard.sh. Words as in CONTEXT.md.
+// current since the retry, not the current that caused the Overload
+// (#59). Run with rails49/test-guard.sh. Words as in CONTEXT.md.
 
 #include "../OverloadMean.h"
 #include <cstdio>
