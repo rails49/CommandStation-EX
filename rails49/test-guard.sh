@@ -4,7 +4,8 @@
 # the same file the firmware builds, with the host C++ compiler and runs
 # rails49/guard_test.cpp against it. Then runs rails49/track_mode_test.cpp
 # against TrackModeChange.h, the rule setTrackMode() uses for a
-# modifier-only change. CXX overrides the compiler.
+# modifier-only change, and rails49/track_report_test.cpp against
+# TrackModeReport.h, the rule reportedMode() uses. CXX overrides the compiler.
 
 set -eu
 
@@ -19,3 +20,7 @@ ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
 ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
   -o "$tmp/track_mode_test" "$here/track_mode_test.cpp"
 "$tmp/track_mode_test"
+
+${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
+  -o "$tmp/track_report_test" "$here/track_report_test.cpp"
+"$tmp/track_report_test"
