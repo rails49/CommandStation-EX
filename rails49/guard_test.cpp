@@ -410,6 +410,47 @@ TEST(one_sample_over_on_a_loop_lets_the_loop_with_the_higher_sample_reverse) {
   EXPECT(!s.reversed[D]);
 }
 
+// GUARD_MAX_TRACKS guarded tracks, the ADC reading one per tick in round
+// robin, as TrackManager::guardTick() does. Track 3 is AUTO and has a soft
+// short from its first sample on, seen only by current.
+TEST(with_every_track_in_the_adc_round_a_soft_short_on_an_auto_track_reverses_not_cut) {
+  const int N = GUARD_MAX_TRACKS, LOOP = 3;
+  GuardIn in[N];
+  GuardOut out[N];
+  unsigned long now = 1000000;
+  for (int t = 0; t < N; t++) {
+    in[t].active = true;
+    in[t].armAt = in[t].holdUntil = now;
+  }
+  in[LOOP].isAuto = true;
+  long accBefore = -1;
+  int reversedOn = 0, samples = 0;
+  for (int i = 0; i < 10 * N && !reversedOn; i++) {
+    int adc = (LOOP + i) % N; // the round starts at the loop
+    for (int t = 0; t < N; t++) in[t].sampled = t == adc;
+    in[adc].lastRaw = adc == LOOP ? 5000 : 300;
+    in[adc].currentOver = in[adc].lastRaw >= TRIP;
+    if (adc == LOOP) samples++;
+    guardDecide(in, out, N, now, times);
+    for (int t = 0; t < N; t++) {
+      EXPECT(!out[t].cut);
+      if (out[t].cut) return;
+    }
+    if (out[LOOP].reverse) reversedOn = samples;
+    else accBefore = out[LOOP].acc;
+    for (int t = 0; t < N; t++) {
+      in[t].acc = out[t].acc;
+      in[t].overCount = out[t].overCount;
+    }
+    now += times.tickUs;
+  }
+  EXPECT(reversedOn == REVERSAL_SAMPLES);
+  // the acc the build checks against the fast trip time, one tick short
+  // as this tick's is reset by the Reversal
+  EXPECT(accBefore + times.tickUs == guardReversalAccUs(times.tickUs, N));
+  EXPECT(guardReversalAccUs(times.tickUs, N) <= times.fastTripUs);
+}
+
 int main() {
   RUN(a_fault_on_an_auto_track_reverses_it_at_once);
   RUN(nothing_happens_during_the_hold_after_a_reversal);
@@ -441,6 +482,7 @@ int main() {
   RUN(an_auto_track_over_by_current_reverses_whatever_the_plain_track_sees);
   RUN(one_sample_over_on_a_loop_does_not_block_the_pick_for_a_plain_track_short);
   RUN(one_sample_over_on_a_loop_lets_the_loop_with_the_higher_sample_reverse);
+  RUN(with_every_track_in_the_adc_round_a_soft_short_on_an_auto_track_reverses_not_cut);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;
