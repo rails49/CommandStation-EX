@@ -49,8 +49,8 @@ void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t
   bool over[GUARD_MAX_TRACKS];    // counts toward the cut
   bool trigger[GUARD_MAX_TRACKS]; // is a short, may cause a Reversal
   bool anyOver = false;
-  bool autoOver = false;
-  bool mainOver = false; // a track that can border a reverse loop, not PROG
+  bool autoTrigger = false;
+  bool mainTrigger = false; // a track that can border a reverse loop, not PROG
 
   for (uint8_t t = 0; t < n; t++) {
     out[t] = GuardOut();
@@ -72,8 +72,10 @@ void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t
     if (over[t]) {
       out[t].acc += times.tickUs;
       anyOver = true;
-      if (in[t].isAuto) autoOver = true;
-      else if (!in[t].isProg && trigger[t]) mainOver = true;
+      if (trigger[t]) {
+        if (in[t].isAuto) autoTrigger = true;
+        else if (!in[t].isProg) mainTrigger = true;
+      }
     } else if (out[t].acc > times.tickUs) {
       out[t].acc -= times.tickUs;
     } else {
@@ -82,14 +84,15 @@ void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t
   }
   if (!anyOver) return;
 
-  // On a short reverse the AUTO track which has it. If no AUTO track is
-  // over and a plain track has a short, the driver of the plain track may
+  // On a short reverse the AUTO track which has it. If no AUTO track has
+  // a short and a plain track has one, the driver of the plain track may
   // be the one that sees a reverse loop short: reverse one loop, the one
-  // with the highest last sample, a tie to the lowest index. Should that
-  // be the wrong one, the short persists past the hold, the first loop is
-  // locked out, and this picks the other.
+  // with the highest last sample, a tie to the lowest index. A loop with
+  // fewer than REVERSAL_SAMPLES over samples takes part like any other.
+  // Should that be the wrong one, the short persists past the hold, the
+  // first loop is locked out, and this picks the other.
   uint8_t pick = n;
-  if (!autoOver && mainOver)
+  if (!autoTrigger && mainTrigger)
     for (uint8_t t = 0; t < n; t++)
       if (canReverse(in[t], now, times) && (pick == n || in[t].lastRaw > in[pick].lastRaw))
         pick = t;
