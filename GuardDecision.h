@@ -27,9 +27,8 @@
 // TrackManager.cpp fails the build if MAX_TRACKS is larger.
 static const uint8_t GUARD_MAX_TRACKS = 8;
 
-// A Reversal by current needs this many consecutive samples over the limit,
-// so one ADC glitch or motor start spike does not flip a loop. A Fault
-// reverses at once.
+// A Reversal by current needs this many consecutive samples over the limit
+// (ADR-0006). A Fault reverses at once.
 static const uint8_t REVERSAL_SAMPLES = 2;
 
 // A track's acc on the tick its REVERSAL_SAMPLES-th consecutive over sample
@@ -78,8 +77,7 @@ struct GuardTimes {
 // Whether a track powering on gets the Inrush Window, ADR-0006. retry: the
 // main loop moves the track from OVERLOAD to ALERT, not the host powering
 // it ON. A host power-on, from OFF or OVERLOAD, and a retry after a Fault
-// get the window, a retry after a current Overload does not, so a soft
-// short is cut within the fast trip time.
+// get the window, a retry after a current Overload does not.
 bool guardInrushWindow(bool retry, bool overloadByCurrent);
 
 // Map the inputs of tracks 0..n-1 to their outputs, n <= GUARD_MAX_TRACKS.

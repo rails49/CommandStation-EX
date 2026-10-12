@@ -54,9 +54,8 @@ void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t
     over[t] = trigger[t] = false;
     if (!in[t].active || held(in[t], now))
       continue;
-    // Current is ignored in the Inrush Window and on a PROG track: NMRA
-    // S-9.2.3 limits it to 250mA sustained for more than 100ms, and an ack
-    // pulse may be higher for 6ms, so the main loop looks after it.
+    // Current is ignored in the Inrush Window, and on a PROG track, whose
+    // current the main loop looks after (ADR-0003).
     bool armed = (long)(now - in[t].armAt) >= 0;
     bool currentOver = in[t].currentOver && !in[t].isProg && armed;
     if (in[t].sampled)
@@ -85,7 +84,7 @@ void GUARD_DECISION_ATTR guardDecide(const GuardIn in[], GuardOut out[], uint8_t
   // with the highest last sample, a tie to the lowest index. A loop with
   // fewer than REVERSAL_SAMPLES over samples takes part like any other.
   // Should that be the wrong one, the short persists past the hold, the
-  // first loop is locked out, and this picks the other.
+  // first loop is locked out, and this picks the other (ADR-0006).
   uint8_t pick = n;
   if (!autoTrigger && mainTrigger)
     for (uint8_t t = 0; t < n; t++)

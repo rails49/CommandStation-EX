@@ -249,13 +249,13 @@ void MotorDriver::setPower(POWERMODE mode) {
   if (on && !wasOn) {
     // Power comes on. A host power-on, also from OVERLOAD, and a retry
     // after a Fault get the Inrush Window, a retry into a current Overload
-    // does not: a soft short would be fed for the whole window on every
-    // retry. Only a retry goes to ALERT, so ON always has the window.
+    // does not (ADR-0006). Only a retry goes to ALERT, so ON always has the
+    // window.
     bool retry = powerMode == POWERMODE::OVERLOAD && mode == POWERMODE::ALERT;
     bool inrushWindow = guardInrushWindow(retry, overloadByCurrent);
     noInrushWindow = !inrushWindow;
 #ifdef FAST_OVERCURRENT_GUARD
-    // let inrush pass before the guard looks at the current
+    // the Guard ignores the current until the Inrush Window ends
     unsigned long now = micros();
     guardArmAt = inrushWindow ? now + OVERCURRENT_INRUSH_MS * 1000UL : now;
     guardHoldUntil = now;
@@ -597,10 +597,9 @@ unsigned int MotorDriver::mA2raw( unsigned int mA) {
 
 bool MotorDriver::setCurrentLimit(unsigned int mA) {
   if (currentPin==UNUSED_PIN) return false;
-  // Clamp to the highest current the ADC can report. A trip value that can
-  // never be reached would mean no short circuit protection at all. This is
-  // the same reasoning as the clamp in the constructor, but measured against
-  // the sense offset taken at the last power on rather than against zero.
+  // Clamp to the highest current the ADC can report (ADR-0001), as the
+  // constructor does, but measured against the sense offset taken at the
+  // last power on rather than against zero.
   unsigned int highestmA=raw2mA(ADCee::ADCmax()-senseOffset);
   if (mA > highestmA) mA=highestmA;
   tripMilliamps=mA;
@@ -790,10 +789,8 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
     if (checkCurrent(useProgLimit)) {
       lastBadSample = now;
       overTime += sinceLastSample;
-      // NMRA S-9.2.3 limits a programming track to 250mA sustained for
-      // more than 100ms. An ack can be a train of short pulses above that
-      // with gaps shorter than POWER_SAMPLE_ALERT_GOOD, so on a PROG track
-      // only the time over the limit counts. A joined track is a main.
+      // On a PROG track only the time over the limit counts (ADR-0003). A
+      // joined track is a main.
       bool prog = (trackMode & TRACK_MODE_PROG) && !TrackManager::isJoined();
       // A retry into a current Overload has no Inrush Window.
       if (prog ? overTime < POWER_SAMPLE_IGNORE_CURRENT
@@ -858,7 +855,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 }
 
 // Cut power for an Overload and tell every client: <p0 x>, on every
-// entry including retries, so the host stops treating the track as on.
+// entry including retries (ADR-0005).
 // byCurrent: the Overload was measured, not a Fault, and the retry gets
 // no Inrush Window.
 void MotorDriver::enterOverload(bool byCurrent) {

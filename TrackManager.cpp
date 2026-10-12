@@ -151,7 +151,7 @@ void TrackManager::Setup(const FSH * shieldname,
 }
 
 #ifdef FAST_OVERCURRENT_GUARD
-// Fast overcurrent guard, runs every OVERCURRENT_TICK_US from a
+// The Guard, runs every OVERCURRENT_TICK_US from a
 // hardware timer. Each tick it reads the fault pin of every guarded
 // track and the current of one of them (round robin, an ADC
 // conversion is slow), hands that to guardDecide() and does what it
