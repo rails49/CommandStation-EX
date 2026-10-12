@@ -442,7 +442,7 @@ class MotorDriver {
     bool invertBrake;       // brake pin passed as negative means pin is inverted
     bool invertPower;       // power pin passed as negative means pin is inverted
     bool invertFault;       // fault pin passed as negative means pin is inverted
-    bool invertPhase = 0;   // phase of out pin is inverted
+    volatile bool invertPhase = 0;   // phase of out pin is inverted
     // Raw to milliamp conversion factors avoiding float data types.
     // Milliamps=rawADCreading * sensefactorInternal / senseScale
     //
