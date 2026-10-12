@@ -26,6 +26,11 @@
 // Tracks the function handles at most, the station's MAX_TRACKS.
 static const uint8_t GUARD_MAX_TRACKS = 8;
 
+// A Reversal by current needs this many consecutive samples over the limit,
+// so one ADC glitch or motor start spike does not flip a loop. A Fault
+// reverses at once.
+static const uint8_t REVERSAL_SAMPLES = 2;
+
 // What the ISR read for one track on this tick, and the Guard's state of
 // that track as left by the previous tick.
 struct GuardIn {
