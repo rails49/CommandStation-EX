@@ -173,6 +173,12 @@ void TrackManager::Setup(const FSH * shieldname,
 // fault pin. checkPowerOverload() picks up the events of the guard and
 // does the messages and the retry logic.
 
+// guardDecide() sizes its per-tick arrays with GUARD_MAX_TRACKS and
+// guardTick() passes it up to MAX_TRACKS tracks.
+static_assert(TrackManager::MAX_TRACKS <= GUARD_MAX_TRACKS,
+              "TrackManager::MAX_TRACKS exceeds GUARD_MAX_TRACKS in "
+              "GuardDecision.h: raise GUARD_MAX_TRACKS to at least MAX_TRACKS");
+
 // A loop's short seen only by current must reach REVERSAL_SAMPLES samples
 // before the cut, with every track in the ADC round (ADR-0006).
 static_assert(guardReversalAccUs(OVERCURRENT_TICK_US, TrackManager::MAX_TRACKS)
