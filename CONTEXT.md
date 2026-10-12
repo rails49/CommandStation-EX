@@ -4,7 +4,7 @@ A DCC++EX command station: it generates DCC track signals, drives one or more
 motor drivers, and accepts text commands from throttles, JMRI and serial hosts.
 
 This glossary fixes the vocabulary used when discussing the station's track
-power and current protection. It is a glossary only — no implementation notes,
+power, current protection and command protocol. It is a glossary only — no implementation notes,
 no decisions.
 
 ## Language
@@ -15,7 +15,7 @@ no decisions.
 One independently powered and independently controlled output of the station,
 identified by a letter A–H and backed by exactly one motor driver. Up to eight
 exist.
-_Avoid_: power zone, power district, section, block, channel
+_Avoid_: power zone, power district, district, section, block, channel
 
 **Track Mode**:
 What a track's output currently carries: MAIN, PROG, DC, DCX, EXT, BOOST or
@@ -75,3 +75,23 @@ _Avoid_: fast overcurrent guard, ISR
 The period after a track powers on in which current over the limit is
 tolerated so decoders can charge.
 _Avoid_: grace period, inrush grace
+
+### Command protocol
+
+**Reply**:
+A line the station sends only to the client whose command caused it.
+_Avoid_: response, answer, echo
+
+**Broadcast**:
+A line the station sends to every connected command client, the client whose
+command caused it included.
+_Avoid_: notification, event, push
+
+**Diagnostic**:
+A `<* … *>` line, sent only on USB serial.
+_Avoid_: log, debug message, DIAG
+
+**Host Timeout**:
+A one-shot timer the host arms with `<G n>`. If no further `<G n>` arrives
+within n seconds, the station stops every loco and turns all track power off.
+_Avoid_: watchdog, keepalive, heartbeat
