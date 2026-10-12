@@ -406,6 +406,66 @@ class TripFollowsJgTest(unittest.TestCase):
         self.assertIn("trip-follows-jg: FAILED", out)
 
 
+# What the station answers to ext-refuses-modifiers' commands when AUTO and
+# INV on an EXT track are refused: <X>, and D still reads EXT. D starts as
+# MAIN A and is put back.
+EXT = {
+    b"<=>": [b"<= A MAIN>\n<= D MAIN A>\n", b"<= A MAIN>\n<= D EXT>\n"],
+    b"<= D EXT>": b"<= D EXT>\n",
+    b"<= D AUTO>": b"<X>\n",
+    b"<= D INV>": b"<X>\n",
+    b"<= D MAIN_AUTO>": b"<= D MAIN A>\n",
+}
+
+
+class ExtRefusesModifiersTest(unittest.TestCase):
+    def check(self, replies):
+        mirror = FakeMirror(replies=replies)
+        self.addCleanup(mirror.close)
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
+                         "ext-refuses-modifiers"])
+        return mirror, code, out
+
+    def test_auto_and_inv_refused_and_d_restored(self):
+        mirror, code, out = self.check(EXT)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(mirror.received, [
+            "<=>", "<= D EXT>", "<= D AUTO>", "<= D INV>", "<=>",
+            "<= D MAIN_AUTO>"])
+        self.assertIn("ext-refuses-modifiers: passed", out)
+
+    def test_auto_accepted_fails_and_d_is_restored(self):
+        replies = dict(EXT)
+        replies[b"<= D AUTO>"] = b"<= D EXT>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <X> for <= D AUTO>", out)
+        self.assertEqual(mirror.received[-1], "<= D MAIN_AUTO>")
+
+    def test_inv_accepted_fails(self):
+        replies = dict(EXT)
+        replies[b"<= D INV>"] = b"<= D EXT>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <X> for <= D INV>", out)
+
+    def test_a_mode_other_than_ext_afterwards_fails(self):
+        replies = dict(EXT)
+        replies[b"<=>"] = [EXT[b"<=>"][0], b"<= A MAIN>\n<= D MAIN A>\n"]
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <=> reports <= D EXT>", out)
+
+    def test_mode_command_from_the_reported_name(self):
+        for state, command in [
+                ("MAIN", "MAIN"), ("MAIN I", "MAIN_INV"),
+                ("MAIN A", "MAIN_AUTO"), ("MAIN A I", "MAIN_AUTO_INV"),
+                ("BOOST A", "BOOST_AUTO"), ("BOOST I", "BOOST_INV"),
+                ("PROG", "PROG"), ("NONE", "NONE"), ("EXT", "EXT"),
+                ("DC 3", "DC 3"), ("DCX 3", "DCX 3")]:
+            self.assertEqual(check.mode_command(state), command, state)
+
+
 class TableTest(unittest.TestCase):
     def test_a_check_and_its_arguments_come_from_the_table_alone(self):
         seen = {}
