@@ -122,6 +122,7 @@ class TrackManager {
     static int8_t lastTrack;
     static byte nextCycleTrack;
     static void applyDCSpeed(byte t);
+    static void setupTrackMode(byte t, TRACK_MODE mode, int16_t dcAddr);
 #ifdef FAST_OVERCURRENT_GUARD
     static void guardISR();
     static void guardTick(unsigned long now);
