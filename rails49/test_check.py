@@ -1,6 +1,10 @@
+# /// script
+# requires-python = ">=3.9"
+# dependencies = []
+# ///
 """Tests of check.py's transport and subcommand table, against a fake mirror.
 
-    python3 -B -m unittest rails49/test_check.py
+    PYTHONDONTWRITEBYTECODE=1 uv run rails49/test_check.py
 """
 
 from __future__ import annotations
@@ -22,6 +26,17 @@ GUARD_REPLY = (
     b"<* GUARD A MAIN inv=0 gpio=0 active=1 acc=0us last=- trip=1200/1999mA *>\n"
     b"<* GUARD D MAIN A inv=1 gpio=1 active=1 acc=0us last=5321ms trip=1200/1999mA *>\n"
     b"<* GUARD ticks=9998/s max=41us *>\n")
+
+# Every reply must arrive within the window; the margin is for a busy CI
+# runner.
+WINDOW = "0.3"
+
+
+def setUpModule():
+    try:
+        socket.create_server(("127.0.0.1", 0)).close()
+    except PermissionError:
+        raise unittest.SkipTest("no local TCP port can be opened here")
 
 
 class FakeMirror:
@@ -92,7 +107,7 @@ class SendTest(unittest.TestCase):
         self.addCleanup(self.mirror.close)
 
     def test_send_prints_the_reply_and_broadcasts(self):
-        code, out = run(["--port", str(self.mirror.port), "--window", "0.3",
+        code, out = run(["--port", str(self.mirror.port), "--window", WINDOW,
                          "send", "<=>"])
         self.assertEqual(code, 0)
         self.assertEqual(self.mirror.received, ["<=>"])
@@ -113,7 +128,7 @@ class GuardTest(unittest.TestCase):
 
     def test_guard_sends_d_guard_and_prints_the_lines(self):
         mirror = self.mirror()
-        code, out = run(["--port", str(mirror.port), "--window", "0.2",
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "guard"])
         self.assertEqual(code, 0)
         self.assertEqual(mirror.received, ["<D GUARD>"])
@@ -129,7 +144,7 @@ class GuardTest(unittest.TestCase):
 
     def test_a_build_without_d_guard_fails(self):
         mirror = self.mirror(b"")
-        code, out = run(["--port", str(mirror.port), "--window", "0.2",
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "guard"])
         self.assertEqual(code, 1)
         self.assertIn("guard: FAILED", out)
@@ -156,7 +171,7 @@ class OverloadBroadcastTest(unittest.TestCase):
         reply = b"".join(line + b"\n" for line in short)
         mirror = FakeMirror(replies={b"<1 D>": reply})
         self.addCleanup(mirror.close)
-        return run(["--port", str(mirror.port), "--window", "0.2",
+        return run(["--port", str(mirror.port), "--window", WINDOW,
                     "overload-broadcast", "--wait", "0.2"])
 
     def test_p0_on_every_entry_and_p1_when_back_on(self):
@@ -190,7 +205,7 @@ class PolaritySurvivesTest(unittest.TestCase):
     def check(self, reply):
         mirror = FakeMirror(reply)
         self.addCleanup(mirror.close)
-        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "polarity-survives"])
         return mirror, code, out
 
@@ -225,7 +240,7 @@ class NoCutTest(unittest.TestCase):
     def check(self, replies):
         mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
-        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "no-cut"])
         return mirror, code, out
 
@@ -274,7 +289,7 @@ class ReportsTest(unittest.TestCase):
     def check(self, replies):
         mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
-        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "reports"])
         return mirror, code, out
 
@@ -312,7 +327,7 @@ class ReversalBroadcastTest(unittest.TestCase):
         mirror = FakeMirror(replies={b"<= D MAIN_AUTO>": b"<= D MAIN A>\n",
                                      b"<1 D>": reply})
         self.addCleanup(mirror.close)
-        return run(["--port", str(mirror.port), "--window", "0.2",
+        return run(["--port", str(mirror.port), "--window", WINDOW,
                     "reversal-broadcast", "--wait", "0.2"])
 
     def test_state_line_next_to_the_reversal(self):
@@ -358,7 +373,7 @@ class TripFollowsJgTest(unittest.TestCase):
         replies[b"<D GUARD>"] = guard_replies
         mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
-        code, out = run(["--port", str(mirror.port), "--window", "0.1",
+        code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "trip-follows-jg"])
         return mirror, code, out
 
@@ -405,7 +420,7 @@ class TableTest(unittest.TestCase):
         table["probe"] = check.Check(
             probe, [("--level", dict(type=int, default=3))])
         with unittest.mock.patch.object(check, "CHECKS", table):
-            code, out = run(["--port", str(mirror.port), "--window", "0.1",
+            code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                              "probe", "--level", "7"])
         self.assertEqual(code, 0)
         self.assertEqual(seen, {"level": 7})

@@ -10,6 +10,6 @@ here=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-"${CXX:-c++}" -std=c++11 -Wall -Wextra -Werror \
+${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
   -o "$tmp/guard_test" "$here/guard_test.cpp" "$here/../GuardDecision.cpp"
 "$tmp/guard_test"
