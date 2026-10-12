@@ -56,25 +56,23 @@ enum TRACK_MODE : byte {
   TRACK_MODE_DCX = TRACK_MODE_DC_INV // DCX is other name for historical reasons
 };
 
-// How long high current is tolerated after a track is powered on, to let
-// decoders charge their capacitors (inrush). A retry after an Overload
-// measured by current gets none of it, a retry after a Fault does.
-// Lower values shorten the time a short seen as a Fault gets power at each
-// retry, but locos with large capacitors may then not start. On ESP32 the fast overcurrent guard
-// still watches the fault pin during this time. Unit: milliseconds.
+// The length of the Inrush Window: how long current over the limit is
+// tolerated after a track is powered on. A retry after a current Overload
+// gets none of it, a retry after a Fault does (ADR-0006). Lower values
+// shorten the time a short seen as a Fault gets power at each retry, but
+// locos with large capacitors may then not start. On ESP32 the Guard still
+// watches the fault pin during this time. Unit: milliseconds.
 #ifndef OVERCURRENT_INRUSH_MS
 #define OVERCURRENT_INRUSH_MS 100
 #endif
 
-// ESP32 only: fast overcurrent guard. A hardware timer looks at the
-// current and the fault pin of each DCC track every OVERCURRENT_TICK_US
-// and cuts power from interrupt context once a track has been overloaded
-// for OVERCURRENT_FAST_TRIP_US, instead of waiting for the main loop.
-// It watches the fault pin from power on, and the current from
-// OVERCURRENT_INRUSH_MS after power on, at once on a retry after a
-// current Overload. On a PROG track it watches the
-// fault pin only. Disable it with
-// DISABLE_FAST_OVERCURRENT. See TrackManager::guardISR().
+// ESP32 only: the Guard. A hardware timer looks at the current and the
+// fault pin of each DCC track every OVERCURRENT_TICK_US and cuts power from
+// interrupt context once a track has been over for OVERCURRENT_FAST_TRIP_US.
+// It watches the fault pin from power on, and the current from the end of
+// the Inrush Window, at once on a retry after a current Overload
+// (ADR-0006). On a PROG track it watches the fault pin only (ADR-0003).
+// Disable it with DISABLE_FAST_OVERCURRENT. See TrackManager::guardISR().
 #if defined(ARDUINO_ARCH_ESP32) && !defined(DISABLE_FAST_OVERCURRENT)
 #define FAST_OVERCURRENT_GUARD
 #endif
