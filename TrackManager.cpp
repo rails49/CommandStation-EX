@@ -28,6 +28,7 @@
 #include "DCC.h"
 #include "MotorDriver.h"
 #include "DCCTimer.h"
+#include "TrackModeChange.h"
 #include "DIAG.h"
 #include "CommandDistributor.h"
 #include "DCCEXParser.h"
@@ -295,6 +296,11 @@ void TrackManager::setDCSignal(int16_t cab, byte speedbyte) {
   }
 }    
 
+static_assert(TRACK_MODE_CHANGE_MODIFIERS == ((byte)TRACK_MODIFIER_INV | (byte)TRACK_MODIFIER_AUTO),
+              "TrackModeChange.h disagrees with MotorDriver.h on INV and AUTO");
+static_assert(TRACK_MODE_CHANGE_DC == TRACK_MODE_DC,
+              "TrackModeChange.h disagrees with MotorDriver.h on DC");
+
 // Everything a change of Track Mode does to the track's pins, its DC and
 // PROG handling and the waveform, before power is cut.
 void TrackManager::setupTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr) {
@@ -460,7 +466,16 @@ bool TrackManager::setTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr
       }
     }
 
-    setupTrackMode(trackToSet, mode, dcAddr);
+    // A change of INV or AUTO alone, or a repeat, keeps the power on
+    // (ADR-0005), so the signal pins stay attached to the waveform: only the
+    // mode and the Polarity are set. Anything else gets the full setup.
+    if (isModifierOnlyChange(oldmode, mode, trackDCAddr[trackToSet], dcAddr)) {
+      track[trackToSet]->setMode(mode);
+      // Off ESP32 a DC track's direction takes the new Polarity only here.
+      if (mode & TRACK_MODE_DC) applyDCSpeed(trackToSet);
+    } else {
+      setupTrackMode(trackToSet, mode, dcAddr);
+    }
 
 #ifdef ARDUINO_ARCH_ESP32
 #ifndef DISABLE_PROG
@@ -476,7 +491,7 @@ bool TrackManager::setTrackMode(byte trackToSet, TRACK_MODE mode, int16_t dcAddr
 #endif
     // Turn off power if we changed the base mode of this track. A change
     // of INV or AUTO alone, or a repeat, leaves it on (ADR-0005).
-    const byte modifiers = TRACK_MODIFIER_INV | TRACK_MODIFIER_AUTO;
+    const byte modifiers = TRACK_MODE_CHANGE_MODIFIERS;
     if ((mode & ~modifiers) != (oldmode & ~modifiers) && offAtChange) {
       track[trackToSet]->setPower(POWERMODE::OFF);
     }
