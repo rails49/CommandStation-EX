@@ -1,3 +1,18 @@
+# rails49 fork
+
+This fork of the DCC-EX firmware is for the
+[EX-CSB1](https://dcc-ex.com/ex-csb1/index.html) command station. It changes:
+
+- Current reports are filtered: `<JI>` returns the mean over the last 250 ms.
+- The maximum track current can be set at runtime.
+- Short circuits are detected in about 5 ms instead of 100 ms.
+- Auto-reversing (track mode AUTO) is more reliable.
+- The Host Timeout `<G n>` turns track power off when the controlling
+  software stops sending for n seconds.
+
+The commands the fork adds or changes are in
+[docs/commands.md](docs/commands.md). The rest of this file is upstream's.
+
 # What is DCC-EX?
 DCC-EX is a team of dedicated enthusiasts producing open source DCC & DC solutions for you to run your complete model railroad layout. Our easy to use, do-it-yourself, and free open source products run on off-the-shelf Arduino technology and are supported by numerous third party hardware and apps like JMRI, Engine Driver, wiThrottle, Rocrail and more. 
 
