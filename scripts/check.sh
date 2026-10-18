@@ -29,7 +29,7 @@ if ! command -v uv >/dev/null; then
   curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" |
     UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh
 fi
-tmp=$(mktemp -d)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 PYTHONDONTWRITEBYTECODE=1 uv run rails49/test_check.py >"$tmp/test_check.log" 2>&1 &
 tests=$!
