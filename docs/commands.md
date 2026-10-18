@@ -405,8 +405,13 @@ every second. `<jM 32000 0>` means the station restarted.
 
 ### Diagnostics
 
-Diagnostics the station sends on its own. The power lines and track state
-lines carry the same events and are the ones to parse; the Diagnostic text can
+Diagnostics the station sends on its own. The [power lines](#power-lines)
+show whether a track has power, not why it is off. A client that needs to
+tell an Overload from a track turned off reads the Diagnostics.
+
+The start of these Diagnostics is stable for clients: `TRACK X ` followed by
+`POWER OVERLOAD`, `FAST OVERLOAD`, `FAULT PIN detected`, `POWER RESTORE`,
+`NORMAL` or `ALERT`. The rest of each line, such as currents and times, can
 change.
 
 | Diagnostic | When |
