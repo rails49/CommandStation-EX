@@ -49,7 +49,7 @@ mkdir "$sketch"
 git ls-files -z --cached --others --exclude-standard | tar -cf - --null -T - | tar -xf - -C "$sketch"
 cp config.rails49.h "$sketch/config.h"
 
-arduino-cli compile --fqbn esp32:esp32:esp32 --warnings all "$sketch"
+arduino-cli compile --fqbn esp32:esp32:esp32 --warnings all --build-path "$tmp/build" "$sketch"
 
 status=0
 wait "$tests" || status=$?
