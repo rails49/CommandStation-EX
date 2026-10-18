@@ -2,7 +2,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [runtime-current-limits]
+    branches: [rails49-main]
 jobs:
   ci:
     runs-on: ubuntu-latest
