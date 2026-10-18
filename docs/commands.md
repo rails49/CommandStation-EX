@@ -287,7 +287,7 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 
 ### Status: `<s>`
 
-1. **Reply:** `<iDCC-EX V-5.6.4 / ESP32 / EXCSB1_WITH_EX8874 G-tag>`. The
+1. **Reply:** `<iDCC-EX V-5.6.3 / ESP32 / EXCSB1_WITH_EX8874 G-tag>`. The
    tag after `G-` names the release on the station.
 2. **Broadcast:** the power lines.
 3. **Reply:** `<H id 0|1>` for each turnout and `<Q id>` or `<q id>` for each
@@ -295,7 +295,7 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 
 ```
 → <s>
-← <iDCC-EX V-5.6.4 / ESP32 / EXCSB1_WITH_EX8874 G-v5.6.4-rails49.17>
+← <iDCC-EX V-5.6.3 / ESP32 / EXCSB1_WITH_EX8874 G-v5.6.3-rails49.19>
 ← <p0 A>
 ← <p0 B>
 ← <p0 C>
