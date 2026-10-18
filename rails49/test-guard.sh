@@ -15,7 +15,7 @@
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
-tmp=$(mktemp -d)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 
 ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
