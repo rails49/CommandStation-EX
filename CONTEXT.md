@@ -63,14 +63,15 @@ _Avoid_: hardware limit, default limit, shield limit
 _Avoid_: NMRA limit, service mode limit
 
 **Overload**:
-The state a track enters when its current reaches its Current Limit. Its power
-is cut
+The state a track enters when its current reaches its Current Limit or its
+motor driver reports a Fault. Its power is cut
 ([docs/commands.md](docs/commands.md#when-a-track-overloads)).
 _Avoid_: trip, fault, short
 
 **Fault**:
-A condition the motor driver hardware itself reports on its fault pin, distinct
-from an Overload detected by measuring current
+A condition the motor driver hardware itself reports on its fault pin, as
+opposed to current the station measures. A cause of an Overload, not the
+Overload itself
 ([docs/commands.md](docs/commands.md#when-a-track-overloads)).
 _Avoid_: error, overload
 
