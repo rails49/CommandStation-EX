@@ -6,8 +6,8 @@ comes out. Nothing in this directory is upstream DCC-EX.
 ## What a release is
 
 A tag of the form `v<upstream version>-rails49.<n>`, for example
-`v5.6.4-rails49.1`. The upstream part says which DCC-EX release the code is
-based on, the suffix counts builds of this fork on top of it.
+`v5.6.3-rails49.19`. The upstream part is the DCC-EX release the code is on,
+the suffix counts builds of this fork (ADR-0007).
 
 Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
 
@@ -18,12 +18,10 @@ Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
    build that is on it;
 4. merges the bootloader, partition table, boot_app0 and application into one
    image, flashable at offset `0x0`;
-5. attaches that image to a GitHub release;
-6. pushes `ghcr.io/rails49/commandstation-ex:<tag>`, which carries the image and
-   `esptool`.
+5. attaches that image to a GitHub release.
 
 Running the workflow by hand from the Actions tab builds the same image and
-keeps it as a workflow artifact, without releasing or pushing anything.
+keeps it as a workflow artifact, without releasing anything.
 
 ## No wifi
 
@@ -32,15 +30,12 @@ accepts no network connections. The layout server reaches it over USB only.
 
 ## Flashing
 
-The layout server pulls the image and runs it against the serial device:
+dccex, the USB mirror on the layout server, flashes the station from a
+release's `firmware.bin`. Two things to know:
 
-    docker run --rm --device /dev/dccex ghcr.io/rails49/commandstation-ex:v5.6.4-rails49.1
-
-`DEVICE` and `BAUD` override the defaults. Two things to know:
-
-- **Something else holds that device.** On the layout server the USB mirror has
-  it open, exclusively. It has to be stopped before flashing and started again
-  afterwards; esptool cannot share the port.
+- **By hand, stop the mirror first.** It holds the device open, exclusively,
+  and esptool cannot share the port. The release notes give the esptool
+  command; start the mirror again afterwards.
 - **Flashing resets the station**, which drops the rails and every throttle
   connected through the mirror. It is not a live operation.
 

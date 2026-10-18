@@ -2,13 +2,13 @@
 # such workflow, and nothing here changes what main.yml does.
 #
 # A tag v<upstream version>-rails49.<n> builds config.rails49.h against the
-# ESP32 core, merges the four images into one, attaches it to a release and
-# pushes an image carrying it. rails49/control pins that image by tag and runs
-# it to flash the station over USB.
+# ESP32 core, merges the four images into one and attaches it to a release as
+# firmware.bin. dccex, the USB mirror on the layout server, flashes the station
+# from that asset.
 #
 # The release is titled with the tag's message, less a leading "<tag>: ". A
 # tag without "-test" deletes every release whose tag has "-test" in it; their
-# git tags and images stay.
+# git tags stay.
 name: rails49 firmware
 
 on:
@@ -21,14 +21,12 @@ env:
   # different core moves the flash offsets this workflow hard codes below.
   ESP32_CORE: 2.0.17
   ESP32_INDEX: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-  IMAGE: ghcr.io/rails49/commandstation-ex
 
 jobs:
   firmware:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -96,9 +94,7 @@ jobs:
 
               esptool.py --chip esp32 --port /dev/dccex --baud 460800 \\
                 --before default_reset --after hard_reset write_flash -z \\
-                --flash_mode dio --flash_freq 80m --flash_size 4MB 0x0 firmware.bin
-
-          Or pull \`$IMAGE:$GITHUB_REF_NAME\`, which carries this image and esptool."
+                --flash_mode dio --flash_freq 80m --flash_size 4MB 0x0 firmware.bin"
 
       - name: Delete the test releases
         if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-test')
@@ -108,11 +104,3 @@ jobs:
           gh release list -R "$GITHUB_REPOSITORY" --limit 1000 --json tagName \
             --jq '.[].tagName | select(contains("-test"))' |
             xargs -r -n1 gh release delete -R "$GITHUB_REPOSITORY" --yes
-
-      - name: Push the flashing image
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          docker build -f rails49/Dockerfile --build-arg "VERSION=$GITHUB_REF_NAME" \
-            -t "$IMAGE:$GITHUB_REF_NAME" .
-          docker push "$IMAGE:$GITHUB_REF_NAME"
