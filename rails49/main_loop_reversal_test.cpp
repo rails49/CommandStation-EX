@@ -4,6 +4,7 @@
 // rails49/test-guard.sh. Words as in CONTEXT.md.
 
 #include "../MainLoopReversal.h"
+#include "../PowerSwitch.h"
 #include <cstdio>
 #include <string>
 
@@ -39,26 +40,39 @@ struct Track {
   }
 };
 
-// An AUTO track the main loop sees a short on. guardWatches is what
-// guardEligible() says, guardActive what the Guard's ISR leaves.
-struct AutoTrack {
-  bool guardWatches = false;
-  bool guardActive = false;
+// An AUTO track the Guard looks after, with the two members of MotorDriver
+// that mainLoopReverses() may read: guardEligible() follows the Track Mode,
+// guardActive is cleared by a Guard cut.
+struct GuardedTrack {
+  bool eligible = true;
+  bool guardActive = true;
+  bool pin = true;
   bool inverted = false;
-  int reversals = 0;
+  int mainLoopReversals = 0;
+
+  bool guardEligible() { return eligible; }
 
   void guardReversesAndCuts() {
     inverted = !inverted;
+    pin = false;
     guardActive = false;
   }
 
+  // ON to ALERT, as MotorDriver::setPower() does it
+  void enterAlert() {
+    if (powerSwitches(true, true)) {
+      pin = true;
+      guardActive = guardEligible();
+    }
+  }
+
   void mainLoopSeesShort() {
-    alertFromOn(mainLoopReverses(true, guardWatches),
+    alertFromOn(mainLoopReverses(true, *this),
                 [this]() {
                   inverted = !inverted;
-                  reversals++;
+                  mainLoopReversals++;
                 },
-                []() {});
+                [this]() { enterAlert(); });
   }
 };
 
@@ -85,19 +99,21 @@ static void an_alert_without_a_reversal_broadcasts_nothing() {
 }
 
 static void a_guard_cut_does_not_let_the_main_loop_reverse_again() {
-  AutoTrack t;
-  t.guardWatches = true;
-  t.guardActive = true;
+  GuardedTrack t;
   t.guardReversesAndCuts();
   t.mainLoopSeesShort();
-  EXPECT(t.reversals == 0);
+  EXPECT(t.mainLoopReversals == 0);
   EXPECT(t.inverted);
+  EXPECT(!t.pin);
+  EXPECT(!t.guardActive);
 }
 
-static void the_main_loop_reverses_a_track_the_guard_does_not_watch() {
-  AutoTrack t;
+static void the_main_loop_reverses_a_track_the_guard_does_not_look_after() {
+  GuardedTrack t;
+  t.eligible = false;
+  t.guardActive = false;
   t.mainLoopSeesShort();
-  EXPECT(t.reversals == 1);
+  EXPECT(t.mainLoopReversals == 1);
   EXPECT(t.inverted);
 }
 
@@ -112,7 +128,7 @@ int main() {
   RUN(the_next_reversal_broadcasts_p1_and_normal_polarity);
   RUN(an_alert_without_a_reversal_broadcasts_nothing);
   RUN(a_guard_cut_does_not_let_the_main_loop_reverse_again);
-  RUN(the_main_loop_reverses_a_track_the_guard_does_not_watch);
+  RUN(the_main_loop_reverses_a_track_the_guard_does_not_look_after);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;

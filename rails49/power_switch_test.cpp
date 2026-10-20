@@ -20,7 +20,7 @@ static const char *current = "";
 
 enum Mode { OFF, ON, OVERLOAD, ALERT };
 
-// A track the Guard watches: its power mode, its power pin and guardActive.
+// A track the Guard looks after: its power mode, its power pin and guardActive.
 struct Track {
   Mode mode = OFF;
   bool pin = false;

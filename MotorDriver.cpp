@@ -744,9 +744,9 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       }
       bool autoTrack = (trackMode & TRACK_MODIFIER_AUTO) && (trackMode & (TRACK_MODE_MAIN|TRACK_MODE_EXT|TRACK_MODE_BOOST));
 #ifdef FAST_OVERCURRENT_GUARD
-      bool reversal = mainLoopReverses(autoTrack, guardEligible());
+      bool reversal = mainLoopReverses(autoTrack, *this);
 #else
-      bool reversal = mainLoopReverses(autoTrack, false);
+      bool reversal = autoTrack;
 #endif
       // the Reversal is broadcast while the track is ON: <p1 x> (#51)
       alertFromOn(reversal,
