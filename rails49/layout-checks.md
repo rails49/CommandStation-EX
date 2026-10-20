@@ -17,18 +17,32 @@ fault pin from the first tick of a power-on. Nobody has measured whether a big
 stay-alive makes the driver report a Fault at power-on. This decides whether
 the fault-pin rule in the Inrush Window has to change (ADR-0006 leaves it open).
 
-1. Put the loco with the largest stay-alive on a guarded MAIN track, say A.
-   No other loco on that track.
-2. `<0 A>`, wait 10 s so the stay-alive is empty.
-3. `<1 A>`, and watch the lines for 10 s.
-4. Repeat steps 2 and 3 twice.
+Only a loco with a large stay-alive answers the question. Without one, record
+that and stop; run the check again when such a loco joins the layout.
 
-Pass: the loco's lights come on and it answers a throttle, and no
-`TRACK A FAST OVERLOAD` line appears, on all three power-ons.
+1. Turn control's power off (`power_wanted` `off`) and start a client that
+   keeps every line with a time.
+2. Put the loco with the largest stay-alive on A, a plain MAIN track. No other
+   loco on that track. F0 on, so its lights show when the stay-alive is empty.
+3. `<0 A>`. Wait until the lights are out, then 10 s more, at least 30 s in
+   all.
+4. `<1 A>`, and watch the lines for 10 s. The loco answers the throttle if it
+   moves a few cm forward and back at a low speed step within 5 s.
+5. Repeat steps 3 and 4 twice.
+6. Read `<JG>`. With A and the AUTO track with the lower limit both on, drive
+   the loco onto that track and stop it. Then steps 3 to 5 on that track.
+7. Once, with the loco on A: power on from the control app's button, which
+   sends `<1>` to all tracks. The panel shows no fault.
 
-Fail: `TRACK A FAST OVERLOAD ... FAULT PIN` right after `<1 A>`, repeated on
-each `TRACK A POWER RESTORE`. Then the fault-pin rule in the Inrush Window is
-reopened as a new spec, with these lines attached. Nothing else changes it.
+Pass: on every power-on the lights come on, the loco answers the throttle,
+and no `FAST OVERLOAD` line appears for its track.
+
+Fail: the loco never powers up, or every power-on of a track gives
+`TRACK X FAST OVERLOAD ... FAULT PIN` before a `TRACK X POWER RESTORE`, even
+when the retry comes back `NORMAL`. On the AUTO track a Fault reverses first,
+so the lines start with `TRACK X INVERT (fast)`. A single such cut is noted
+and the power-on repeated. On a fail the fault-pin rule in the Inrush Window
+is reopened as a new spec, with these lines attached. Nothing else changes it.
 
 ## 2. A retry into a soft short is cut within a few ms
 
