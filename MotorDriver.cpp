@@ -717,7 +717,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 
   case POWERMODE::OFF: {
     lastPowerMode = POWERMODE::OFF;
-    overloadBroadcast = false;
+    p1Due = false;
     power_sample_overload_wait = POWER_SAMPLE_OVERLOAD_WAIT;
     currentMean.reset();
     break;
@@ -725,7 +725,7 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 
   case POWERMODE::ON: {
     lastPowerMode = POWERMODE::ON;
-    overloadBroadcast = false; // also when the host powered it on
+    p1Due = false; // also when the host powered it on
     bool cF = checkFault();
     bool cC = checkCurrent(useProgLimit);
     if(cF || cC ) {
@@ -820,8 +820,8 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       }
       throttleInrush(false);
       setPower(POWERMODE::ON);
-      if (overloadBroadcast) { // back on after an Overload: <p1 x>
-	overloadBroadcast = false;
+      if (p1Due) { // back on after a <p0 x>: <p1 x>
+	p1Due = false;
 	CommandDistributor::broadcastPower();
       }
       break;
@@ -863,6 +863,6 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
 void MotorDriver::enterOverload(bool byCurrent) {
   overloadByCurrent = byCurrent;
   cutForOverload(currentMean, [this]() { setPower(POWERMODE::OVERLOAD); });
-  overloadBroadcast = true;
+  p1Due = true;
   CommandDistributor::broadcastPower();
 }

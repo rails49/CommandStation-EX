@@ -23,7 +23,8 @@
 
 // reverse flips the Polarity and Broadcasts the track state, alert sets the
 // track to ALERT. A Reversal is Broadcast while the track is still ON, so the
-// power lines say <p1 x>: ALERT returning to ON Broadcasts nothing.
+// power lines say <p1 x>: ALERT returning to ON Broadcasts nothing, unless
+// power lines went out during the ALERT (#78).
 template <class Reverse, class Alert>
 inline void alertFromOn(bool reversal, Reverse reverse, Alert alert) {
   if (reversal)

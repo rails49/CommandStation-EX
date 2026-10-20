@@ -10,7 +10,9 @@
 # checkPowerOverload() follows for a Reversal, and
 # rails49/current_mean_test.cpp against CurrentMean.h, the mean <JI>
 # reports, and rails49/overload_mean_test.cpp against OverloadMean.h, what
-# entering Overload does to that mean. CXX overrides the compiler.
+# entering Overload does to that mean, and rails49/power_line_test.cpp
+# against PowerLine.h, what the power lines report for a track. CXX
+# overrides the compiler.
 
 set -eu
 
@@ -41,3 +43,7 @@ ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
 ${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
   -o "$tmp/overload_mean_test" "$here/overload_mean_test.cpp"
 "$tmp/overload_mean_test"
+
+${CXX:-c++} -std=c++11 -Wall -Wextra -Werror \
+  -o "$tmp/power_line_test" "$here/power_line_test.cpp"
+"$tmp/power_line_test"

@@ -784,7 +784,7 @@ bool TrackManager::getPower(byte t, char s[]) {
   if (t > lastTrack)
     return false;
   if (track[t]) {
-    s[0] = track[t]->getPower() == POWERMODE::ON ? '1' : '0';
+    s[0] = track[t]->readPowerLine();
     s[2] = t + 'A';
     return true;
   }

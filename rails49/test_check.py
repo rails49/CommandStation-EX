@@ -431,7 +431,9 @@ JOIN = {
             b"<jG 2000 600 2000 2000>\n<iDCC-EX V-5.6.3 / ESP32 / x / y>\n"
             b"<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n<p1 PROG>\n"
             b"<* TRACK B ALERT FAULT *>\n<= B MAIN>\n<p1 A>\n<p0 B>\n"
-            b"<p1 JOIN>\n<jG 2000 600 2000 2000>\n<r -1>\n",
+            b"<p1 JOIN>\n<jG 2000 600 2000 2000>\n<r -1>\n"
+            b"<* TRACK B NORMAL (after 20ms/20ms) 0mA *>\n"
+            b"<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n",
     b"<JG B 250>": b"<jG 2000 250 2000 2000>\n",
 }
 
@@ -502,6 +504,31 @@ class JoinKeepsJgTest(unittest.TestCase):
                         b"<jG 2000 600 2000 2000>\n"})
         self.assertEqual(code, 1)
         self.assertIn("FAIL <p1 JOIN> after <1 JOIN>", out)
+
+    def test_no_p1_after_p0_as_join_is_restored_fails(self):
+        # #73's run, before #78: B in ALERT reads <p0 B>, and none follows
+        mirror, code, out = self.check(**{
+            "<R>": JOIN[b"<R>"].split(b"<* TRACK B NORMAL")[0]
+                   + b"<* TRACK B NORMAL (after 20ms/20ms) 0mA *>\n"})
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <p1 B> after the <p0 B> as Join is restored", out)
+        self.assertEqual(mirror.received[-2:], ["<0 PROG>", "<JG B 250>"])
+
+    def test_p1_with_the_next_command_passes(self):
+        mirror, code, out = self.check(**{
+            "<R>": JOIN[b"<R>"].split(b"<* TRACK B NORMAL")[0],
+            "<D GUARD>": [GUARD_REPLY_JOINED, b"<p1 B>\n" + GUARD_REPLY_JOINED]})
+        self.assertEqual(code, 0, out)
+        self.assertIn("ok   <p1 B> after the <p0 B> as Join is restored", out)
+
+    def test_no_alert_as_join_is_restored_passes_and_says_so(self):
+        mirror, code, out = self.check(**{
+            "<R>": JOIN[b"<R>"].split(b"<* TRACK B ALERT")[0]
+                   + b"<= B MAIN>\n<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n"
+                   b"<jG 2000 600 2000 2000>\n<r -1>\n"})
+        self.assertEqual(code, 0, out)
+        self.assertIn("<p1 B> as Join is restored: no ALERT seen", out)
+        self.assertIn("join-keeps-jg: passed", out)
 
     def test_no_reply_to_r_fails(self):
         mirror, code, out = self.check(**{"<R>": b"<= B PROG>\n"})

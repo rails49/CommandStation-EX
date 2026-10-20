@@ -98,8 +98,8 @@ display. Lines not described here come from upstream features.
 - **Ack:** a programming command Broadcasts `<= X PROG>` when it ends Join
   and `<= X MAIN>` when it restores it, each with the power lines and
   `<jG …>`. The power lines carry `<p1 JOIN>` only when Join is restored. They
-  can also read `<p0 X>` for the PROG track, which is back on 20 ms later with
-  no Broadcast; `<s>` reports it as it is. On rails49 builds up to
+  can also read `<p0 X>` for the PROG track, which is back on 20 ms later; a
+  `<p1 X>` Broadcast follows. `<s>` reports it as it is. On rails49 builds up to
   `v5.6.3-rails49.19`, the power lines Broadcast as Join starts or ends
   report it as it was before the change.
 - **Error:** none. Without a PROG track it powers the MAIN tracks and does
@@ -130,7 +130,8 @@ The block of lines that reports power, Broadcast after every power change and
 in answer to `<s>`:
 
 1. `<p1 X>` or `<p0 X>` for each track. `1` means the track is on. `0` means
-   off or in Overload.
+   off or in Overload. A track can also read `<p0 X>` briefly while its power
+   is on; a `<p1 X>` Broadcast follows when it is back on.
 2. `<p1>` if every track is on. `<p0>` if no track is on, or every track not
    in NONE mode is off. Otherwise no line.
 3. `<p1 MAIN>` if at least one MAIN track is on and none is off. `<p1 PROG>`
