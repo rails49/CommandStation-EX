@@ -509,6 +509,13 @@ class JoinKeepsJgTest(unittest.TestCase):
         self.assertIn("FAIL a reply to <R>", out)
         self.assertEqual(mirror.received[-2:], ["<0 PROG>", "<JG B 250>"])
 
+    def test_power_lines_among_the_mode_lines_are_not_a_prog_track(self):
+        # the translator's <s> polls come in the same window as <=>
+        mirror, code, out = self.check(**{
+            "<=>": JOIN[b"<=>"] + b"<iDCC-EX V-5.6.3 / ESP32 / x / y>\n"
+                   b"<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n<p1 PROG>\n"})
+        self.assertEqual(code, 0, out)
+
     def test_no_prog_track_fails_before_any_change(self):
         mirror, code, out = self.check(**{"<=>": b"<= A MAIN>\n<= B NONE>\n"})
         self.assertEqual(code, 1)
