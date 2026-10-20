@@ -122,12 +122,24 @@ def power_lines(lines: list[str], track: str) -> list[str]:
     return [line for line in lines if line in (f"<p0 {track}>", f"<p1 {track}>")]
 
 
+def mode_change_at(lines: list[str], state_line: str) -> int | None:
+    """Index of the last state_line a mode change Broadcast. A state_line
+    next to another <= x ...> line is part of a <=> reply, such as the
+    translator's polls."""
+    def alone(i):
+        return not any(lines[j].startswith("<= ") for j in (i - 1, i + 1)
+                       if 0 <= j < len(lines))
+    at = [i for i, line in enumerate(lines) if line == state_line and alone(i)]
+    return at[-1] if at else None
+
+
 def mode_change_lines(lines: list[str], state_line: str) -> list[str]:
     """What a mode change Broadcasts: the lines from the last state_line up
     to its <jG ...>."""
-    if state_line not in lines:
+    at = mode_change_at(lines, state_line)
+    if at is None:
         return []
-    rest = lines[max(i for i, line in enumerate(lines) if line == state_line):]
+    rest = lines[at:]
     end = next((n for n, line in enumerate(rest) if line.startswith("<jG ")),
                len(rest))
     return rest[:end]
@@ -346,13 +358,14 @@ def join_keeps_jg(st: Station, args):
         trips_at_set_limit()
         lines = st.send_until("<R>", "<r", args.wait)
         expect(any(line.startswith("<r") for line in lines), "a reply to <R>")
-        expect(f"<= {track} PROG>" in lines, f"<= {track} PROG> as the ack ends Join")
+        expect(mode_change_at(lines, f"<= {track} PROG>") is not None,
+               f"<= {track} PROG> as the ack ends Join")
         expect("<p1 JOIN>" not in mode_change_lines(lines, f"<= {track} PROG>"),
                "no <p1 JOIN> as Join ends")
         restored = mode_change_lines(lines, f"<= {track} MAIN>")
         expect("<p1 JOIN>" in restored, "<p1 JOIN> as Join is restored")
-        at = max(i for i, line in enumerate(lines) if line == f"<= {track} MAIN>")
-        later = lines[at:] + trips_at_set_limit()
+        later = (lines[mode_change_at(lines, f"<= {track} MAIN>"):]
+                 + trips_at_set_limit())
         if f"<p0 {track}>" in restored:
             expect(f"<p1 {track}>" in later,
                    f"<p1 {track}> after the <p0 {track}> as Join is restored")

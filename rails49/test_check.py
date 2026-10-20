@@ -530,6 +530,15 @@ class JoinKeepsJgTest(unittest.TestCase):
         self.assertIn("<p1 B> as Join is restored: no ALERT seen", out)
         self.assertIn("join-keeps-jg: passed", out)
 
+    def test_the_translators_mode_polls_during_the_ack_are_skipped(self):
+        # as on the station: <=> replies before and after Join is restored
+        poll_prog = b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n<= D MAIN A>\n"
+        poll_main = b"<= A MAIN>\n<= B MAIN>\n<= C MAIN A>\n<= D MAIN A>\n"
+        r = JOIN[b"<R>"].replace(b"<* TRACK B ALERT", poll_prog + b"<* TRACK B ALERT")
+        mirror, code, out = self.check(**{"<R>": r + poll_main})
+        self.assertEqual(code, 0, out)
+        self.assertIn("ok   <p1 B> after the <p0 B> as Join is restored", out)
+
     def test_no_reply_to_r_fails(self):
         mirror, code, out = self.check(**{"<R>": b"<= B PROG>\n"})
         self.assertEqual(code, 1)
