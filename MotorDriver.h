@@ -31,6 +31,7 @@
 #include "TemplateForEnums.h"
 #include "GuardDecision.h"
 #include "CurrentMean.h"
+#include "PowerLine.h"
 // use powers of two so we can do logical and/or on the track modes in if clauses.
 // For example TRACK_MODE_DC_INV is (TRACK_MODE_DC|TRACK_MODIFIER_INV)
 enum TRACK_MODE : byte {
@@ -211,6 +212,11 @@ class MotorDriver {
                 byte current_pin, float senseFactor, unsigned int tripMilliamps, int16_t fault_pin);
     void setPower( POWERMODE mode);
     POWERMODE getPower() { return powerMode;}
+    // '1' or '0' for this track in the power lines; in ALERT it sets p1Due,
+    // see PowerLine.h
+    char readPowerLine() {
+      return ::readPowerLine(powerMode == POWERMODE::ON, powerMode == POWERMODE::ALERT, p1Due);
+    }
     // as the port registers can be shadowed to get syncronized DCC signals
     // we need to take care of that and we have to turn off interrupts if
     // we setSignal() or setBrake() or setPower() during that time as
@@ -461,7 +467,7 @@ class MotorDriver {
     static unsigned long globalOverloadStart; // timestamp in microseconds
     int progTripValue;
     bool limitSet = false; // set by <JG>, replaces the prog limit
-    bool overloadBroadcast = false; // <p0 x> went out for an Overload, <p1 x> is due
+    bool p1Due = false; // <p0 x> went out for an Overload or in ALERT, <p1 x> is due
     // The cause of the last Overload: current, or a Fault. A retry into a
     // current Overload gets no Inrush Window, see ADR-0006.
     bool overloadByCurrent = false;
