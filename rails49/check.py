@@ -11,6 +11,7 @@ is local:
 
     uv run rails49/check.py polarity-survives
     uv run rails49/check.py trip-follows-jg
+    uv run rails49/check.py join-keeps-jg
     uv run rails49/check.py guard
     uv run rails49/check.py ext-refuses-modifiers
     uv run rails49/check.py --host 127.0.0.1 --port 2560 send "<D GUARD>"
@@ -158,6 +159,21 @@ class Station:
             print(f"    {line}")
         return lines
 
+    def send_until(self, command: str, prefix: str, seconds: float) -> list[str]:
+        """Send a command and collect until a line starts with prefix, or for
+        seconds at most."""
+        self.sock.sendall(command.encode() + b"\n")
+        print(f">>> {command}")
+        lines = []
+        end = time.monotonic() + seconds
+        while (not any(line.startswith(prefix) for line in lines)
+               and (left := end - time.monotonic()) > 0):
+            more = self.collect(min(self.window, left))
+            for line in more:
+                print(f"    {line}")
+            lines += more
+        return lines
+
 
 def expect(ok: bool, what: str):
     print(("ok   " if ok else "FAIL ") + what)
@@ -286,6 +302,45 @@ def trip_follows_jg(st: Station, args):
         st.send(f"<JG {TRACK} {before[index]}>")
 
 
+def join_keeps_jg(st: Station, args):
+    """A limit set with <JG> on the PROG track holds while joined, and
+    through an ack, which ends Join and restores it (ADR-0002)."""
+    prog = [line[3] for line in st.send("<=>") if line.endswith(" PROG>")]
+    expect(len(prog) == 1, "<=> reports one PROG track")
+    track = prog[0]
+    index = ord(track) - ord("A")
+    before = gauges(st.send("<JG>"))
+    expect(len(before) > index, f"<JG> reports a limit for {track}")
+
+    def trips_at_set_limit():
+        guard = parse_guard(st.send("<D GUARD>"))
+        expect(track in guard and guard[track].trip_ma is not None,
+               f"<D GUARD> reports {track}'s trip value")
+        t = guard[track]
+        # the mA come back through the ADC's raw counts, so may be a little low
+        expect(args.ma - 20 <= t.trip_ma <= args.ma,
+               f"{track} trips at {t.trip_ma}mA ({t.trip} raw), set {args.ma}mA")
+
+    try:
+        st.send(f"<JG {track} {args.ma}>")
+        # PROG off first, so <1 JOIN> changes its power and broadcasts
+        st.send("<0 PROG>")
+        lines = st.send("<1 JOIN>")
+        expect("<p1 JOIN>" in lines, "<p1 JOIN> after <1 JOIN>")
+        trips_at_set_limit()
+        lines = st.send_until("<R>", "<r", args.wait)
+        expect(any(line.startswith("<r") for line in lines), "a reply to <R>")
+        # The power lines sent as Join is restored read <p1 MAIN> (#75), so
+        # ask with <s>.
+        lines = st.send("<s>")
+        expect("<p1 JOIN>" in lines, "<s> reports <p1 JOIN> after the ack")
+        trips_at_set_limit()
+    finally:
+        print(f"ending Join, restoring {track}'s limit to {before[index]}mA")
+        st.send("<0 PROG>")
+        st.send(f"<JG {track} {before[index]}>")
+
+
 def ext_refuses_modifiers(st: Station, args):
     """<= x AUTO> and <= x INV> on an EXT track are refused, and the track
     stays EXT."""
@@ -341,6 +396,10 @@ CHECKS = {
     "ext-refuses-modifiers": Check(ext_refuses_modifiers),
     "trip-follows-jg": Check(trip_follows_jg, [
         ("--ma", dict(type=int, default=300, help="limit to set, mA"))]),
+    "join-keeps-jg": Check(join_keeps_jg, [
+        ("--ma", dict(type=int, default=600, help="limit to set, mA")),
+        ("--wait", dict(type=float, default=20.0,
+                        help="seconds to wait for the reply to <R>"))]),
 }
 
 

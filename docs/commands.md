@@ -82,6 +82,45 @@ display. Lines not described here come from upstream features.
 ← <p1 D>
 ```
 
+### Join: `<1 JOIN>`
+
+- **Effect:** turns on [Join](../CONTEXT.md) and powers every MAIN
+  track and the PROG track. While joined the PROG track carries the MAIN
+  signal and reads `MAIN` in `<=>` and `<D GUARD>`.
+- **Ending it:** `<1 PROG>`, `<0>` or `<0 MAIN>`; also `<0 PROG>`, `<0 X>`,
+  and `<= X MODE>` with a mode other than PROG on the joined track. A programming command such as `<R>` ends Join for its ack and
+  restores it before its Reply.
+- **Reply:** none.
+- **Broadcast:** `<= X MAIN>` for the PROG track, the power lines and
+  `<jG …>`; then, if a track's power changed, the power lines again, with
+  `<p1 JOIN>`.
+- **Ack:** a programming command Broadcasts `<= X PROG>` when it ends Join
+  and `<= X MAIN>` when it restores it, each with the power lines and
+  `<jG …>`. Those power lines report Join as it was before the change:
+  `<p1 JOIN>` when it ends, `<p1 MAIN>` when it is restored. The restore's lines
+  can also read `<p0 X>` for the PROG track, which is back on 20 ms later
+  with no Broadcast. `<s>` reports both as they are.
+- **Error:** none. Without a PROG track it powers the MAIN tracks and does
+  not join.
+
+With B the PROG track and off:
+
+```
+→ <1 JOIN>
+← <= B MAIN>
+← <p1 A>
+← <p0 B>
+← <p1 C>
+← <p1 D>
+← <jG 2000 600 1500 500>
+← <p1 A>
+← <p1 B>
+← <p1 C>
+← <p1 D>
+← <p1>
+← <p1 JOIN>
+```
+
 ### Power lines
 
 The block of lines that reports power, Broadcast after every power change and
@@ -92,7 +131,8 @@ in answer to `<s>`:
 2. `<p1>` if every track is on. `<p0>` if no track is on, or every track not
    in NONE mode is off. Otherwise no line.
 3. `<p1 MAIN>` if at least one MAIN track is on and none is off. `<p1 PROG>`
-   if the PROG track is on.
+   if the PROG track is on. While joined, `<p1 JOIN>` in place of both,
+   whether or not the tracks are on.
 
 Read the per-track lines; lines 2 and 3 are summaries of them.
 
@@ -140,7 +180,8 @@ Read the per-track lines; lines 2 and 3 are summaries of them.
   maximum, with no `<X>`; `<jG>` shows the value in force.
 - **Effect:** the limit is the one current the track overloads at, in every
   mode, from the Guard's next check. On a PROG track it replaces the 250 mA
-  Prog Limit. It is lost when the station restarts.
+  Prog Limit, and holds while joined. Before any `<JG>`, a joined PROG track
+  trips at its Board Limit. It is lost when the station restarts.
 - **Reply:** none.
 - **Broadcast:** `<jG A B C D>`, every track's Current Limit in mA.
 - **Error:** `<X>` for mA ≤ 0, a letter outside A–H, or a track that does not

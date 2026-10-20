@@ -59,6 +59,11 @@ by the read. It changes nothing on the layout:
 first after a boot, then sets `<JG D 300>` (`--ma`) and expects D's trip value
 to read it at once, and restores D's previous limit.
 
+`join-keeps-jg` finds the PROG track from `<=>`, sets its limit to 600 mA
+(`--ma`), joins with `<1 JOIN>`, and expects the trip value to read it while
+joined and again after the ack of an `<R>`. It ends with `<0 PROG>` and
+restores the previous limit.
+
 Every other subcommand is one check of #9 or #10; `--help` lists them. A check
 changes track modes and power, so run one only with the user's OK. A new check
 is one entry in the `CHECKS` table. `python3 -B -m unittest rails49/test_check.py`
