@@ -35,7 +35,7 @@ _Avoid_: service mode track, prog track
 The station state, set with `<1 JOIN>`, in which the Programming Track carries
 the same DCC signal as the MAIN tracks, so a loco on it can drive onto the
 layout. A state of the station, not a Track Mode
-([upstream command summary](https://dcc-ex.com/reference/software/command-summary-consolidated.html)).
+([docs/commands.md](docs/commands.md#join-1-join)).
 _Avoid_: JOIN mode, joined tracks, sync main
 
 **Polarity**:
