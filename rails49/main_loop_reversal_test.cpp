@@ -39,6 +39,29 @@ struct Track {
   }
 };
 
+// An AUTO track the main loop sees a short on. guardWatches is what
+// guardEligible() says, guardActive what the Guard's ISR leaves.
+struct AutoTrack {
+  bool guardWatches = false;
+  bool guardActive = false;
+  bool inverted = false;
+  int reversals = 0;
+
+  void guardReversesAndCuts() {
+    inverted = !inverted;
+    guardActive = false;
+  }
+
+  void mainLoopSeesShort() {
+    alertFromOn(mainLoopReverses(true, guardWatches),
+                [this]() {
+                  inverted = !inverted;
+                  reversals++;
+                },
+                []() {});
+  }
+};
+
 static void a_reversal_broadcasts_p1() {
   Track t;
   t.enterAlert(true);
@@ -61,6 +84,23 @@ static void an_alert_without_a_reversal_broadcasts_nothing() {
   EXPECT(t.alert);
 }
 
+static void a_guard_cut_does_not_let_the_main_loop_reverse_again() {
+  AutoTrack t;
+  t.guardWatches = true;
+  t.guardActive = true;
+  t.guardReversesAndCuts();
+  t.mainLoopSeesShort();
+  EXPECT(t.reversals == 0);
+  EXPECT(t.inverted);
+}
+
+static void the_main_loop_reverses_a_track_the_guard_does_not_watch() {
+  AutoTrack t;
+  t.mainLoopSeesShort();
+  EXPECT(t.reversals == 1);
+  EXPECT(t.inverted);
+}
+
 #define RUN(test)                                                         \
   do {                                                                    \
     current = #test;                                                      \
@@ -71,6 +111,8 @@ int main() {
   RUN(a_reversal_broadcasts_p1);
   RUN(the_next_reversal_broadcasts_p1_and_normal_polarity);
   RUN(an_alert_without_a_reversal_broadcasts_nothing);
+  RUN(a_guard_cut_does_not_let_the_main_loop_reverse_again);
+  RUN(the_main_loop_reverses_a_track_the_guard_does_not_watch);
   if (failures) {
     std::printf("%d failed\n", failures);
     return 1;

@@ -21,6 +21,13 @@
 // a short on a track that is ON. No Arduino type may appear here: the native
 // test in rails49/ compiles this file with the host compiler.
 
+// The main loop reverses an AUTO track only if the Guard does not watch it,
+// else the Guard does the Reversal. guardWatches is guardEligible(): a Guard
+// cut clears guardActive on a track the Guard still watches (#83).
+inline bool mainLoopReverses(bool autoTrack, bool guardWatches) {
+  return autoTrack && !guardWatches;
+}
+
 // reverse flips the Polarity and Broadcasts the track state, alert sets the
 // track to ALERT. A Reversal is Broadcast while the track is still ON, so the
 // power lines say <p1 x>: ALERT returning to ON Broadcasts nothing, unless

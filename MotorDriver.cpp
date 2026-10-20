@@ -33,6 +33,7 @@
 #include "EXRAIL2.h"
 #include "MainLoopReversal.h"
 #include "OverloadMean.h"
+#include "PowerSwitch.h"
 #ifdef FAST_OVERCURRENT_GUARD
 #include <soc/gpio_struct.h>
 #endif
@@ -269,6 +270,10 @@ void MotorDriver::setPower(POWERMODE mode) {
     // An ALERT entered from ON gets the main loop's tolerance. The flag is
     // read only in ALERT, and the next power-on sets it again.
     noInrushWindow = false;
+  }
+  if (!powerSwitches(wasOn, on)) {
+    powerMode=mode;
+    return;
   }
 #ifdef FAST_OVERCURRENT_GUARD
   guardActive = on && guardEligible();
@@ -737,11 +742,12 @@ void MotorDriver::checkPowerOverload(bool useProgLimit, byte trackno) {
       } else {
 	DIAG(F("TRACK %c ALERT FAULT"), trackno + 'A');
       }
-      bool reversal = (trackMode & TRACK_MODIFIER_AUTO) && (trackMode & (TRACK_MODE_MAIN|TRACK_MODE_EXT|TRACK_MODE_BOOST))
+      bool autoTrack = (trackMode & TRACK_MODIFIER_AUTO) && (trackMode & (TRACK_MODE_MAIN|TRACK_MODE_EXT|TRACK_MODE_BOOST));
 #ifdef FAST_OVERCURRENT_GUARD
-	&& !guardActive // then the guard interrupt does the inverting
+      bool reversal = mainLoopReverses(autoTrack, guardEligible());
+#else
+      bool reversal = mainLoopReverses(autoTrack, false);
 #endif
-	;
       // the Reversal is broadcast while the track is ON: <p1 x> (#51)
       alertFromOn(reversal,
 		  [this, trackno]() {
