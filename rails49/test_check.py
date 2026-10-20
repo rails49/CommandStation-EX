@@ -414,22 +414,24 @@ GUARD_REPLY_JOINED = (
     b"<* GUARD B MAIN inv=0 gpio=0 active=1 acc=0us last=- trip=360/599mA *>\n"
     b"<* GUARD ticks=9998/s max=41us *>\n")
 # What the station answers to join-keeps-jg's commands when the limit holds
-# through the join and the ack. B is the PROG track, never given a limit.
+# through the join and the ack, and the power lines of each change of Join
+# report the new state. B is the PROG track, never given a limit, and every
+# track is on.
 JOIN = {
     b"<=>": b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n<= D MAIN A>\n",
     b"<JG>": b"<jG 2000 250 2000 2000>\n",
     b"<JG B 600>": b"<jG 2000 600 2000 2000>\n",
-    b"<0 PROG>": b"<p1 A>\n<p0 B>\n<p1 MAIN>\n",
-    b"<1 JOIN>": b"<= B MAIN>\n<p1 A>\n<p0 B>\n<jG 2000 600 2000 2000>\n"
-                 b"<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n",
+    b"<0 PROG>": b"<= B PROG>\n<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n<p1 PROG>\n"
+                 b"<jG 2000 600 2000 2000>\n<p1 A>\n<p0 B>\n<p1 MAIN>\n",
+    b"<1 JOIN>": b"<= B MAIN>\n<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n"
+                 b"<jG 2000 600 2000 2000>\n",
     b"<D GUARD>": GUARD_REPLY_JOINED,
-    # the lines as Join ends still read JOIN, those as it is restored do not
-    b"<R>": b"<= B PROG>\n<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n"
-            b"<jG 2000 600 2000 2000>\n<* TRACK B ALERT FAULT *>\n"
-            b"<= B MAIN>\n<p1 A>\n<p0 B>\n<p1 MAIN>\n"
-            b"<jG 2000 600 2000 2000>\n<r -1>\n",
-    b"<s>": b"<iDCC-EX V-5.6.3 / ESP32 / x / y>\n<p1 A>\n<p1 B>\n<p1>\n"
-            b"<p1 JOIN>\n",
+    # Join ends, the translator's <s> comes in between, Join is restored
+    b"<R>": b"<= B PROG>\n<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n<p1 PROG>\n"
+            b"<jG 2000 600 2000 2000>\n<iDCC-EX V-5.6.3 / ESP32 / x / y>\n"
+            b"<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n<p1 PROG>\n"
+            b"<* TRACK B ALERT FAULT *>\n<= B MAIN>\n<p1 A>\n<p0 B>\n"
+            b"<p1 JOIN>\n<jG 2000 600 2000 2000>\n<r -1>\n",
     b"<JG B 250>": b"<jG 2000 250 2000 2000>\n",
 }
 
@@ -448,8 +450,8 @@ class JoinKeepsJgTest(unittest.TestCase):
         mirror, code, out = self.check()
         self.assertEqual(code, 0, out)
         self.assertEqual(mirror.received, [
-            "<=>", "<JG>", "<JG B 600>", "<0 PROG>", "<1 JOIN>", "<D GUARD>",
-            "<R>", "<s>", "<D GUARD>", "<0 PROG>", "<JG B 250>"])
+            "<=>", "<JG>", "<JG B 600>", "<1 JOIN>", "<D GUARD>", "<R>",
+            "<D GUARD>", "<0 PROG>", "<JG B 250>"])
         self.assertIn("join-keeps-jg: passed", out)
 
     def test_no_join_line_fails_and_b_is_restored(self):
@@ -468,11 +470,38 @@ class JoinKeepsJgTest(unittest.TestCase):
         self.assertIn("FAIL B trips at 4999mA", out)
         self.assertEqual(mirror.received[-2:], ["<0 PROG>", "<JG B 250>"])
 
-    def test_not_joined_after_the_ack_fails(self):
+    def test_join_lines_with_the_previous_state_fail(self):
+        # before #75: each change's power lines report Join as it was
         mirror, code, out = self.check(**{
-            "<s>": b"<p1 A>\n<p1 B>\n<p1 MAIN>\n<p1 PROG>\n"})
+            "<R>": b"<= B PROG>\n<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n"
+                   b"<jG 2000 600 2000 2000>\n<= B MAIN>\n<p1 A>\n<p0 B>\n"
+                   b"<p1 MAIN>\n<jG 2000 600 2000 2000>\n<r -1>\n"})
         self.assertEqual(code, 1)
-        self.assertIn("FAIL <s> reports <p1 JOIN> after the ack", out)
+        self.assertIn("FAIL no <p1 JOIN> as Join ends", out)
+        self.assertEqual(mirror.received[-2:], ["<0 PROG>", "<JG B 250>"])
+
+    def test_no_join_line_as_join_is_restored_fails(self):
+        mirror, code, out = self.check(**{
+            "<R>": b"<= B PROG>\n<p1 A>\n<p1 B>\n<p1 MAIN>\n<p1 PROG>\n"
+                   b"<jG 2000 600 2000 2000>\n<= B MAIN>\n<p1 A>\n<p1 B>\n"
+                   b"<p1 MAIN>\n<jG 2000 600 2000 2000>\n<r -1>\n"})
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <p1 JOIN> as Join is restored", out)
+
+    def test_join_line_only_after_the_power_change_fails(self):
+        # before #75, with B off: only setTrackPower()'s lines carry JOIN
+        mirror, code, out = self.check(**{
+            "<1 JOIN>": b"<= B MAIN>\n<p1 A>\n<p0 B>\n<jG 2000 600 2000 2000>\n"
+                        b"<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n"})
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <p1 JOIN> after <1 JOIN>", out)
+
+    def test_no_join_line_on_join_with_every_track_on_fails(self):
+        mirror, code, out = self.check(**{
+            "<1 JOIN>": b"<= B MAIN>\n<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n"
+                        b"<jG 2000 600 2000 2000>\n"})
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <p1 JOIN> after <1 JOIN>", out)
 
     def test_no_reply_to_r_fails(self):
         mirror, code, out = self.check(**{"<R>": b"<= B PROG>\n"})

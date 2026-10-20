@@ -88,18 +88,20 @@ display. Lines not described here come from upstream features.
   track and the PROG track. While joined the PROG track carries the MAIN
   signal and reads `MAIN` in `<=>` and `<D GUARD>`.
 - **Ending it:** `<1 PROG>`, `<0>` or `<0 MAIN>`; also `<0 PROG>`, `<0 X>`,
-  and `<= X MODE>` with a mode other than PROG on the joined track. A programming command such as `<R>` ends Join for its ack and
-  restores it before its Reply.
+  and `<= X MODE>` with a mode other than PROG on the joined track. A
+  programming command such as `<R>` ends Join for its ack and restores it
+  before its Reply.
 - **Reply:** none.
-- **Broadcast:** `<= X MAIN>` for the PROG track, the power lines and
-  `<jG …>`; then, if a track's power changed, the power lines again, with
-  `<p1 JOIN>`.
+- **Broadcast:** `<= X MAIN>` for the PROG track, the power lines with
+  `<p1 JOIN>`, and `<jG …>`; then, if a track's power changed, the power lines
+  again.
 - **Ack:** a programming command Broadcasts `<= X PROG>` when it ends Join
   and `<= X MAIN>` when it restores it, each with the power lines and
-  `<jG …>`. Those power lines report Join as it was before the change:
-  `<p1 JOIN>` when it ends, `<p1 MAIN>` when it is restored. The restore's lines
-  can also read `<p0 X>` for the PROG track, which is back on 20 ms later
-  with no Broadcast. `<s>` reports both as they are.
+  `<jG …>`. The power lines carry `<p1 JOIN>` only when Join is restored. They
+  can also read `<p0 X>` for the PROG track, which is back on 20 ms later with
+  no Broadcast; `<s>` reports it as it is. On rails49 builds up to
+  `v5.6.3-rails49.19`, the power lines Broadcast as Join starts or ends
+  report it as it was before the change.
 - **Error:** none. Without a PROG track it powers the MAIN tracks and does
   not join.
 
@@ -112,6 +114,7 @@ With B the PROG track and off:
 ← <p0 B>
 ← <p1 C>
 ← <p1 D>
+← <p1 JOIN>
 ← <jG 2000 600 1500 500>
 ← <p1 A>
 ← <p1 B>
