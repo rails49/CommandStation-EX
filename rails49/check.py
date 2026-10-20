@@ -317,7 +317,8 @@ def join_keeps_jg(st: Station, args):
     """A limit set with <JG> on the PROG track holds while joined, and
     through an ack, which ends Join and restores it (ADR-0002). The power
     lines of each change report Join as it is after the change."""
-    prog = [line[3] for line in st.send("<=>") if line.endswith(" PROG>")]
+    prog = [line[3] for line in st.send("<=>")
+            if line.startswith("<= ") and line.endswith(" PROG>")]
     expect(len(prog) == 1, "<=> reports one PROG track")
     track = prog[0]
     index = ord(track) - ord("A")
