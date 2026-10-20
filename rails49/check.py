@@ -122,6 +122,17 @@ def power_lines(lines: list[str], track: str) -> list[str]:
     return [line for line in lines if line in (f"<p0 {track}>", f"<p1 {track}>")]
 
 
+def mode_change_lines(lines: list[str], state_line: str) -> list[str]:
+    """What a mode change Broadcasts: the lines from the last state_line up
+    to its <jG ...>."""
+    if state_line not in lines:
+        return []
+    rest = lines[max(i for i, line in enumerate(lines) if line == state_line):]
+    end = next((n for n, line in enumerate(rest) if line.startswith("<jG ")),
+               len(rest))
+    return rest[:end]
+
+
 class Station:
     def __init__(self, host: str, port: int, window: float):
         self.window = window
@@ -304,7 +315,8 @@ def trip_follows_jg(st: Station, args):
 
 def join_keeps_jg(st: Station, args):
     """A limit set with <JG> on the PROG track holds while joined, and
-    through an ack, which ends Join and restores it (ADR-0002)."""
+    through an ack, which ends Join and restores it (ADR-0002). The power
+    lines of each change report Join as it is after the change."""
     prog = [line[3] for line in st.send("<=>") if line.endswith(" PROG>")]
     expect(len(prog) == 1, "<=> reports one PROG track")
     track = prog[0]
@@ -323,17 +335,16 @@ def join_keeps_jg(st: Station, args):
 
     try:
         st.send(f"<JG {track} {args.ma}>")
-        # PROG off first, so <1 JOIN> changes its power and broadcasts
-        st.send("<0 PROG>")
         lines = st.send("<1 JOIN>")
         expect("<p1 JOIN>" in lines, "<p1 JOIN> after <1 JOIN>")
         trips_at_set_limit()
         lines = st.send_until("<R>", "<r", args.wait)
         expect(any(line.startswith("<r") for line in lines), "a reply to <R>")
-        # The power lines sent as Join is restored read <p1 MAIN> (#75), so
-        # ask with <s>.
-        lines = st.send("<s>")
-        expect("<p1 JOIN>" in lines, "<s> reports <p1 JOIN> after the ack")
+        expect(f"<= {track} PROG>" in lines, f"<= {track} PROG> as the ack ends Join")
+        expect("<p1 JOIN>" not in mode_change_lines(lines, f"<= {track} PROG>"),
+               "no <p1 JOIN> as Join ends")
+        expect("<p1 JOIN>" in mode_change_lines(lines, f"<= {track} MAIN>"),
+               "<p1 JOIN> as Join is restored")
         trips_at_set_limit()
     finally:
         print(f"ending Join, restoring {track}'s limit to {before[index]}mA")

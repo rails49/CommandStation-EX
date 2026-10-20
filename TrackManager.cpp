@@ -882,6 +882,7 @@ void TrackManager::setJoin(bool joined) {
     FOR_EACH_TRACK(t) {
       if (track[t]->getMode() & TRACK_MODE_PROG) {       // find PROG track
 	tempProgTrack = t;                               // remember PROG track
+	progTrackSyncMain = true;                        // before setTrackMode(), whose power lines report it
 	setTrackMode(t, TRACK_MODE_MAIN, 0, false);      // 0 = no DC loco; false = do not turn off pwr
 	// then in some cases setPower() is called
 	// seperately after the setJoin() as well
@@ -891,6 +892,7 @@ void TrackManager::setJoin(bool joined) {
     return;                                              // no prog track found, can not do more
   success: /* continue here when prog tack found */;
   } else {
+    progTrackSyncMain = false;                           // before setTrackMode(), as above
     if (tempProgTrack != MAX_TRACKS+1) {
       // setTrackMode defaults to power off, so we
       // need to preserve that state.

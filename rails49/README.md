@@ -61,8 +61,9 @@ to read it at once, and restores D's previous limit.
 
 `join-keeps-jg` finds the PROG track from `<=>`, sets its limit to 600 mA
 (`--ma`), joins with `<1 JOIN>`, and expects the trip value to read it while
-joined and again after the ack of an `<R>`. It ends with `<0 PROG>` and
-restores the previous limit.
+joined and again after the ack of an `<R>`. It expects no `<p1 JOIN>` in the
+power lines Broadcast as the ack ends Join, and `<p1 JOIN>` in those as it
+restores Join. It ends with `<0 PROG>` and restores the previous limit.
 
 Every other subcommand is one check of #9 or #10; `--help` lists them. A check
 changes track modes and power, so run one only with the user's OK. A new check
