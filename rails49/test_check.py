@@ -488,6 +488,14 @@ class JoinKeepsJgTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("FAIL <p1 JOIN> as Join is restored", out)
 
+    def test_join_line_only_after_the_power_change_fails(self):
+        # before #75, with B off: only setTrackPower()'s lines carry JOIN
+        mirror, code, out = self.check(**{
+            "<1 JOIN>": b"<= B MAIN>\n<p1 A>\n<p0 B>\n<jG 2000 600 2000 2000>\n"
+                        b"<p1 A>\n<p1 B>\n<p1>\n<p1 JOIN>\n"})
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <p1 JOIN> after <1 JOIN>", out)
+
     def test_no_join_line_on_join_with_every_track_on_fails(self):
         mirror, code, out = self.check(**{
             "<1 JOIN>": b"<= B MAIN>\n<p1 A>\n<p1 B>\n<p1>\n<p1 MAIN>\n"

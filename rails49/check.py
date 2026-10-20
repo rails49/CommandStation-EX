@@ -336,7 +336,8 @@ def join_keeps_jg(st: Station, args):
     try:
         st.send(f"<JG {track} {args.ma}>")
         lines = st.send("<1 JOIN>")
-        expect("<p1 JOIN>" in lines, "<p1 JOIN> after <1 JOIN>")
+        expect("<p1 JOIN>" in mode_change_lines(lines, f"<= {track} MAIN>"),
+               "<p1 JOIN> after <1 JOIN>")
         trips_at_set_limit()
         lines = st.send_until("<R>", "<r", args.wait)
         expect(any(line.startswith("<r") for line in lines), "a reply to <R>")
