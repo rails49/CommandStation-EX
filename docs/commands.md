@@ -87,6 +87,8 @@ display. Lines not described here come from upstream features.
 - **Effect:** turns on [Join](../CONTEXT.md) and powers every MAIN
   track and the PROG track. While joined the PROG track carries the MAIN
   signal and reads `MAIN` in `<=>` and `<D GUARD>`.
+  - The use of the JOIN function allows the DCC signal for the `MAIN` track to also be sent to the `PROG` track. This allows the prog track to act as a siding (or similar) in the main layout even though it is isolated electrically and connected to the programming track output.
+  - Sending a programming command automatically switches it to `PROG`.
 - **Ending it:** `<1 PROG>`, `<0>` or `<0 MAIN>`; also `<0 PROG>`, `<0 X>`,
   and `<= X MODE>` with a mode other than PROG on the joined track. A
   programming command such as `<R>` ends Join for its ack and restores it
@@ -293,25 +295,19 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 
 ## Accessories
 
-### Points and other basic accessories: `<a addr sub act>`
+### Points and other basic accessories: `<a addr act>`
 
 - **Parameters:**
-  - addr: decoder address, 0–511.
-  - sub: output on that decoder, 0–3.
-  - act: which of the output's two coils, 0 or 1.
+  - addr: decoder address, 1–2044.
+  - act: which of the output's two coils, 0 (off, deactivate, turnout closed) or 1 (on, activate, thrown).
 - **Effect:** the station sends the "on" packet, then the "off" packet 100 ms
   later. It keeps no record of the accessory's state.
 - **Reply:** none.
 - **Broadcast:** none.
 - **Error:** `<X>` for a value out of range.
-- **The form depends on the parameter count.** With two parameters,
-  `<a n act>`, n is a linear address: addr = (n-1)/4 + 1, sub = (n-1) mod 4.
-  `<a 5 1>` is linear address 5, never addr 5 sub 1.
-- **Notes:** the translator turns its linear point number L (1–2044) into
-  `<a (L-1)/4+1 (L-1)%4 act>`, with act 1 for thrown.
 
 ```
-→ <a 3 2 1>
+→ <a 101 1>
 ```
 
 ### Signals and other extended accessories: `<A addr value>`
