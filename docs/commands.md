@@ -298,7 +298,7 @@ Broadcast whenever a loco's speed, direction or functions F0–F31 change.
 ### Points and other basic accessories: `<a addr act>`
 
 - **Parameters:**
-  - addr: decoder address, 0–2044.
+  - addr: decoder address, 1–2044.
   - act: which of the output's two coils, 0 (off, deactivate, turnout closed) or 1 (on, activate, thrown).
 - **Effect:** the station sends the "on" packet, then the "off" packet 100 ms
   later. It keeps no record of the accessory's state.
