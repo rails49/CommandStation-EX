@@ -224,11 +224,12 @@ def reports(st: Station, args):
     # without that mode word too.
     st.send(f"<= {TRACK} MAIN_AUTO>")
     st.send(f"<= {TRACK} INV>")
+    # every <=> reply in the window, the translator's polls too, reports it
     states = track_states(st.send("<=>"), TRACK)
-    expect(states == ["MAIN A I"], f"<=> reports <= {TRACK} MAIN A I>")
+    expect(set(states) == {"MAIN A I"}, f"<=> reports <= {TRACK} MAIN A I>")
     st.send(f"<= {TRACK} MAIN_AUTO>")
     states = track_states(st.send("<=>"), TRACK)
-    expect(states == ["MAIN A"], f"<=> reports <= {TRACK} MAIN A>")
+    expect(set(states) == {"MAIN A"}, f"<=> reports <= {TRACK} MAIN A>")
 
 
 def no_cut(st: Station, args):
@@ -241,11 +242,14 @@ def no_cut(st: Station, args):
                         ("INV", "MAIN I"), ("MAIN_AUTO", "MAIN A")]:
         lines = st.send(f"<= {TRACK} {mode}>")
         expect(f"<p0 {TRACK}>" not in lines, f"no <p0 {TRACK}> after {mode}")
-        expect(track_states(lines, TRACK) == [state],
+        # the Broadcast, not a translator's <=> poll that shows the state too
+        expect(mode_change_at(lines, f"<= {TRACK} {state}>") is not None,
                f"broadcast <= {TRACK} {state}>")
     # <s> is the station's only power query; it broadcasts every track's.
+    # The translator's <s> polls in the window come after the command too.
     lines = st.send("<s>")
-    expect(power_lines(lines, TRACK) == [f"<p1 {TRACK}>"], f"<s> reports {TRACK} on")
+    expect(set(power_lines(lines, TRACK)) == {f"<p1 {TRACK}>"},
+           f"<s> reports {TRACK} on")
     lines = st.send(f"<= {TRACK} NONE>")
     expect(f"<p0 {TRACK}>" in lines, f"<p0 {TRACK}> after NONE")
     print(f"restoring {TRACK} to MAIN_AUTO and on")
@@ -331,10 +335,11 @@ def join_keeps_jg(st: Station, args):
     lines of each change report Join as it is after the change. A PROG
     track that reads <p0 x> as Join is restored, in ALERT, reads <p1 x>
     once it is back on."""
-    prog = [line[3] for line in st.send("<=>")
-            if line.startswith("<= ") and line.endswith(" PROG>")]
+    # the translator's <=> polls in the window repeat the reply
+    prog = {line[3] for line in st.send("<=>")
+            if line.startswith("<= ") and line.endswith(" PROG>")}
     expect(len(prog) == 1, "<=> reports one PROG track")
-    track = prog[0]
+    track = prog.pop()
     index = ord(track) - ord("A")
     before = gauges(st.send("<JG>"))
     expect(len(before) > index, f"<JG> reports a limit for {track}")
@@ -382,14 +387,14 @@ def ext_refuses_modifiers(st: Station, args):
     """<= x AUTO> and <= x INV> on an EXT track are refused, and the track
     stays EXT."""
     before = track_states(st.send("<=>"), TRACK)
-    expect(len(before) == 1, f"<=> reports {TRACK}")
+    expect(len(set(before)) == 1, f"<=> reports {TRACK}")
     try:
         st.send(f"<= {TRACK} EXT>")
         for modifier in ("AUTO", "INV"):
             lines = st.send(f"<= {TRACK} {modifier}>")
             expect("<X>" in lines, f"<X> for <= {TRACK} {modifier}>")
         states = track_states(st.send("<=>"), TRACK)
-        expect(states == ["EXT"], f"<=> reports <= {TRACK} EXT>")
+        expect(set(states) == {"EXT"}, f"<=> reports <= {TRACK} EXT>")
     finally:
         print(f"restoring {TRACK} to {before[0]}")
         st.send(f"<= {TRACK} {mode_command(before[0])}>")
