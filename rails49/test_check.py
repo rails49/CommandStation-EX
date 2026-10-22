@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import re
 import socket
 import sys
 import threading
@@ -42,10 +43,15 @@ def setUpModule():
 class FakeMirror:
     """A line-based TCP server that answers <=> and <D GUARD> like the
     station does, and after <=> broadcasts a line a moment later, as another
-    client's command would."""
+    client's command would. After every answer the translator's <=> and <s>
+    polls follow, as on the station, from the last <= x ...> and <p0 x> or
+    <p1 x> line sent for each track."""
 
-    def __init__(self, guard_reply=GUARD_REPLY, replies=None):
+    def __init__(self, guard_reply=GUARD_REPLY, replies=None, polls=True):
         self.guard_reply = guard_reply
+        self.polls = polls
+        self.modes = {}  # track -> its last <= x ...> line
+        self.power = {}  # track -> its last <p0 x> or <p1 x> line
         # command -> lines, for a check's script; a list of them is played
         # one per time the command comes, the last one repeated
         self.replies = {command: list(reply) if isinstance(reply, list)
@@ -71,13 +77,26 @@ class FakeMirror:
                 for line in done:
                     self.received.append(line.decode())
                     if line in self.replies:
-                        conn.sendall(self.reply(line))
+                        self.send(conn, self.reply(line))
                     elif line == b"<=>":
-                        conn.sendall(b"<= A MAIN>\n<= D MAIN A>\n")
+                        self.send(conn, b"<= A MAIN>\n<= D MAIN A>\n")
                         threading.Event().wait(0.05)
-                        conn.sendall(b"<p1 A>\n")
+                        self.send(conn, b"<p1 A>\n")
                     elif line == b"<D GUARD>":
-                        conn.sendall(self.guard_reply)
+                        self.send(conn, self.guard_reply)
+                    if self.polls:
+                        conn.sendall(b"".join(self.modes.values()) +
+                                     b"<iDCC-EX V-5.6.3 / ESP32 / x / y>\n" +
+                                     b"".join(self.power.values()))
+
+    def send(self, conn, lines):
+        for line in lines.splitlines(keepends=True):
+            m = re.match(rb"<(?:= ([A-H]) |p[01] ([A-H])>)", line)
+            if m and m[1]:
+                self.modes[m[1]] = line
+            elif m:
+                self.power[m[2]] = line
+        conn.sendall(lines)
 
     def reply(self, line):
         reply = self.replies[line]
@@ -103,7 +122,7 @@ def free_port():
 
 class SendTest(unittest.TestCase):
     def setUp(self):
-        self.mirror = FakeMirror()
+        self.mirror = FakeMirror(polls=False)  # asserts every line
         self.addCleanup(self.mirror.close)
 
     def test_send_prints_the_reply_and_broadcasts(self):
@@ -238,7 +257,8 @@ NO_CUT = {
 
 class NoCutTest(unittest.TestCase):
     def check(self, replies):
-        mirror = FakeMirror(replies=replies)
+        # a poll next to the mode change Broadcast hides it from no-cut
+        mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "no-cut"])
@@ -287,7 +307,8 @@ REPORTS = {
 
 class ReportsTest(unittest.TestCase):
     def check(self, replies):
-        mirror = FakeMirror(replies=replies)
+        # reports reads a <=> poll in its window as a second D state
+        mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "reports"])
@@ -442,7 +463,9 @@ class JoinKeepsJgTest(unittest.TestCase):
     def check(self, **changes):
         replies = dict(JOIN)
         replies.update({k.encode(): v for k, v in changes.items()})
-        mirror = FakeMirror(replies=replies)
+        # join-keeps-jg reads a <=> poll in its first window as a second
+        # PROG track
+        mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "join-keeps-jg", "--wait", "0.5"])
@@ -573,7 +596,9 @@ EXT = {
 
 class ExtRefusesModifiersTest(unittest.TestCase):
     def check(self, replies):
-        mirror = FakeMirror(replies=replies)
+        # ext-refuses-modifiers reads a <=> poll in its window as a second D
+        # state
+        mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "ext-refuses-modifiers"])
