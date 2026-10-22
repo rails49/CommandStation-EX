@@ -224,8 +224,7 @@ def reports(st: Station, args):
     # without that mode word too.
     st.send(f"<= {TRACK} MAIN_AUTO>")
     st.send(f"<= {TRACK} INV>")
-    # Every <=> reply in the window, the translator's polls too, comes after
-    # the previous command, so each must report the state.
+    # every <=> reply in the window, the translator's polls too, reports it
     states = track_states(st.send("<=>"), TRACK)
     expect(set(states) == {"MAIN A I"}, f"<=> reports <= {TRACK} MAIN A I>")
     st.send(f"<= {TRACK} MAIN_AUTO>")

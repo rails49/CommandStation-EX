@@ -28,6 +28,9 @@ GUARD_REPLY = (
     b"<* GUARD D MAIN A inv=1 gpio=1 active=1 acc=0us last=5321ms trip=1200/1999mA *>\n"
     b"<* GUARD ticks=9998/s max=41us *>\n")
 
+# The translator's <=> poll's lines for the tracks a script leaves alone
+POLL_A_TO_C = b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n"
+
 # Every reply must arrive within the window; the margin is for a busy CI
 # runner.
 WINDOW = "0.3"
@@ -301,8 +304,7 @@ class NoCutTest(unittest.TestCase):
     def test_no_broadcast_but_a_poll_with_the_new_mode_fails(self):
         replies = dict(NO_CUT)
         # the translator's <=> poll alone
-        replies[b"<= D MAIN>"] = (b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n"
-                                  b"<= D MAIN>\n")
+        replies[b"<= D MAIN>"] = POLL_A_TO_C + b"<= D MAIN>\n"
         mirror, code, out = self.check(replies)
         self.assertEqual(code, 1)
         self.assertIn("FAIL broadcast <= D MAIN>", out)
@@ -315,8 +317,6 @@ REPORTS = {
     b"<= D INV>": b"<= D MAIN A I>\n",
     b"<=>": [b"<= A MAIN>\n<= D MAIN A I>\n", b"<= A MAIN>\n<= D MAIN A>\n"],
 }
-# The translator's <=> poll after <= D INV>
-POLL_MAIN_A_I = b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n<= D MAIN A I>\n"
 
 
 class ReportsTest(unittest.TestCase):
@@ -344,8 +344,9 @@ class ReportsTest(unittest.TestCase):
 
     def test_a_wrong_reply_among_polls_that_agree_fails(self):
         replies = dict(REPORTS)
-        replies[b"<=>"] = [b"<= A MAIN>\n<= D MAIN A>\n" + POLL_MAIN_A_I,
-                           REPORTS[b"<=>"][1]]
+        # the reply, then the translator's <=> poll
+        replies[b"<=>"] = [b"<= A MAIN>\n<= D MAIN A>\n" + POLL_A_TO_C
+                           + b"<= D MAIN A I>\n", REPORTS[b"<=>"][1]]
         mirror, code, out = self.check(replies)
         self.assertEqual(code, 1)
         self.assertIn("FAIL <=> reports <= D MAIN A I>", out)
