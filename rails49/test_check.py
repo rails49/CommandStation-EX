@@ -257,7 +257,7 @@ NO_CUT = {
 
 class NoCutTest(unittest.TestCase):
     def check(self, replies):
-        # a poll next to the mode change Broadcast hides it from no-cut
+        # a poll next to the mode change Broadcast hides it from no-cut (#89)
         mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
@@ -307,7 +307,7 @@ REPORTS = {
 
 class ReportsTest(unittest.TestCase):
     def check(self, replies):
-        # reports reads a <=> poll in its window as a second D state
+        # reports reads a <=> poll in its window as a second D state (#89)
         mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
@@ -464,7 +464,7 @@ class JoinKeepsJgTest(unittest.TestCase):
         replies = dict(JOIN)
         replies.update({k.encode(): v for k, v in changes.items()})
         # join-keeps-jg reads a <=> poll in its first window as a second
-        # PROG track
+        # PROG track (#89)
         mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
@@ -597,7 +597,7 @@ EXT = {
 class ExtRefusesModifiersTest(unittest.TestCase):
     def check(self, replies):
         # ext-refuses-modifiers reads a <=> poll in its window as a second D
-        # state
+        # state (#89)
         mirror = FakeMirror(replies=replies, polls=False)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
