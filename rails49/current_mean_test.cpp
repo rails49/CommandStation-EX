@@ -1,7 +1,7 @@
 // Native test of the mean <JI> reports, CurrentMean.h: the mean over the last
 // complete window, which a read does not reset, so every client polling <JI>
 // reads the same value at the same moment (#52). Run with
-// rails49/test-guard.sh. Words as in CONTEXT.md.
+// rails49/test-guard.sh. Words as in GLOSSARY.md.
 
 #include "../CurrentMean.h"
 #include <cstdio>

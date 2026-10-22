@@ -1,7 +1,7 @@
 // Native test of the order MotorDriver::checkPowerOverload() follows when the
 // main loop sees a short on a track that is ON: a Reversal is broadcast while
 // the track is still ON, so the power lines say <p1 x> (#51). Run with
-// rails49/test-guard.sh. Words as in CONTEXT.md.
+// rails49/test-guard.sh. Words as in GLOSSARY.md.
 
 #include "../MainLoopReversal.h"
 #include "../PowerSwitch.h"

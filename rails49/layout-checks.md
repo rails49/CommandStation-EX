@@ -8,7 +8,7 @@ them with the result.
 
 All of them need a normal build on the station and a terminal on the mirror,
 for example `uv run rails49/check.py send "<D GUARD>"`, or any client that
-shows the station's `<* ... *>` lines. Words as in `CONTEXT.md`.
+shows the station's `<* ... *>` lines. Words as in `GLOSSARY.md`.
 
 ## 1. Does a loco with a stay-alive power up on a guarded track?
 

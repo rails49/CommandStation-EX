@@ -6,7 +6,7 @@ motor drivers, and accepts text commands from throttles, JMRI and serial hosts.
 This glossary fixes the vocabulary used when discussing the station's track
 power, current protection and command protocol. Every entry links to the doc
 that owns it (org
-[ADR-0017](https://github.com/rails49/.github/blob/main/docs/adr/0017-each-fact-has-one-owner-and-an-accepted-adr-does-not-change.md)).
+[ADR-0021](https://github.com/rails49/.github/blob/main/docs/adr/0021-each-fact-has-one-owner-and-the-glossary-is-glossary-md.md)).
 
 ## Language
 

@@ -1,7 +1,7 @@
 // Native test of when MotorDriver::setPower() drives the power pin and arms
 // the Guard, PowerSwitch.h: only when power goes on or off, so a Guard cut
 // stays cut through ON to ALERT and back (#83). Run with
-// rails49/test-guard.sh. Words as in CONTEXT.md.
+// rails49/test-guard.sh. Words as in GLOSSARY.md.
 
 #include "../PowerSwitch.h"
 #include <cstdio>
