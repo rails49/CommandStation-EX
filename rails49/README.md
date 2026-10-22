@@ -11,8 +11,7 @@ the suffix counts builds of this fork (ADR-0007).
 
 Pushing such a tag runs `.github/workflows/rails49-release.yml`, which:
 
-1. runs `rails49/test-guard.sh`, the native test of the Guard's per-tick
-   decision, and stops if it fails;
+1. runs `rails49/test-guard.sh`, the native tests, and stops if one fails;
 2. builds `config.rails49.h` against ESP32 core 2.0.17;
 3. writes the tag into `GITHUB_SHA.h`, so the station's `<s>` banner names the
    build that is on it;
