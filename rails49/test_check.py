@@ -44,13 +44,16 @@ class FakeMirror:
     """A line-based TCP server that answers <=> and <D GUARD> like the
     station does, and after <=> broadcasts a line a moment later, as another
     client's command would. After every answer the translator's <=> and <s>
-    polls follow, as on the station, from the last <= x ...> and <p0 x> or
-    <p1 x> line sent for each track."""
+    polls follow, as on the station: <=> lists tracks A-D, each from the
+    last <= x ...> line sent for it or a default, and <s> the last <p0 x>
+    or <p1 x> line sent for each track."""
 
     def __init__(self, guard_reply=GUARD_REPLY, replies=None, polls=True):
         self.guard_reply = guard_reply
         self.polls = polls
-        self.modes = {}  # track -> its last <= x ...> line
+        # track -> its last <= x ...> line
+        self.modes = {b"A": b"<= A MAIN>\n", b"B": b"<= B PROG>\n",
+                      b"C": b"<= C MAIN A>\n", b"D": b"<= D MAIN A>\n"}
         self.power = {}  # track -> its last <p0 x> or <p1 x> line
         # command -> lines, for a check's script; a list of them is played
         # one per time the command comes, the last one repeated
@@ -243,13 +246,14 @@ class PolaritySurvivesTest(unittest.TestCase):
 
 
 # What the station answers to no-cut's commands when only a base mode change
-# cuts power (ADR-0005). Each <= broadcasts D's state; <s> its power.
+# cuts power (ADR-0005). Each <= broadcasts D's state and every track's
+# power; <s> the power.
 NO_CUT = {
     b"<1 D>": b"<p1 D>\n",
-    b"<= D MAIN_AUTO_INV>": b"<= D MAIN A I>\n",
-    b"<= D MAIN_AUTO>": b"<= D MAIN A>\n",
-    b"<= D MAIN>": b"<= D MAIN>\n",
-    b"<= D INV>": b"<= D MAIN I>\n",
+    b"<= D MAIN_AUTO_INV>": b"<= D MAIN A I>\n<p1 A>\n<p1 D>\n",
+    b"<= D MAIN_AUTO>": b"<= D MAIN A>\n<p1 A>\n<p1 D>\n",
+    b"<= D MAIN>": b"<= D MAIN>\n<p1 A>\n<p1 D>\n",
+    b"<= D INV>": b"<= D MAIN I>\n<p1 A>\n<p1 D>\n",
     b"<s>": b"<iDCC-EX V-5.4.0 / ESP32 / x / y>\n<p1 A>\n<p1 D>\n",
     b"<= D NONE>": b"<p0 D>\n<= D NONE>\n",
 }
@@ -257,8 +261,7 @@ NO_CUT = {
 
 class NoCutTest(unittest.TestCase):
     def check(self, replies):
-        # a poll next to the mode change Broadcast hides it from no-cut (#89)
-        mirror = FakeMirror(replies=replies, polls=False)
+        mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "no-cut"])
@@ -295,6 +298,15 @@ class NoCutTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("FAIL <p0 D> after NONE", out)
 
+    def test_no_broadcast_but_a_poll_with_the_new_mode_fails(self):
+        replies = dict(NO_CUT)
+        # the translator's <=> poll alone
+        replies[b"<= D MAIN>"] = (b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n"
+                                  b"<= D MAIN>\n")
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL broadcast <= D MAIN>", out)
+
 
 # What <=> answers after reports' commands when it names D from the hardware
 # invert flag: inverted after <= D INV, normal after <= D MAIN_AUTO.
@@ -303,12 +315,13 @@ REPORTS = {
     b"<= D INV>": b"<= D MAIN A I>\n",
     b"<=>": [b"<= A MAIN>\n<= D MAIN A I>\n", b"<= A MAIN>\n<= D MAIN A>\n"],
 }
+# The translator's <=> poll after <= D INV>
+POLL_MAIN_A_I = b"<= A MAIN>\n<= B PROG>\n<= C MAIN A>\n<= D MAIN A I>\n"
 
 
 class ReportsTest(unittest.TestCase):
     def check(self, replies):
-        # reports reads a <=> poll in its window as a second D state (#89)
-        mirror = FakeMirror(replies=replies, polls=False)
+        mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "reports"])
@@ -325,6 +338,14 @@ class ReportsTest(unittest.TestCase):
         # INV set on the mode, but the name taken from AUTO alone
         replies = dict(REPORTS)
         replies[b"<=>"] = b"<= A MAIN>\n<= D MAIN A>\n"
+        mirror, code, out = self.check(replies)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL <=> reports <= D MAIN A I>", out)
+
+    def test_a_wrong_reply_among_polls_that_agree_fails(self):
+        replies = dict(REPORTS)
+        replies[b"<=>"] = [b"<= A MAIN>\n<= D MAIN A>\n" + POLL_MAIN_A_I,
+                           REPORTS[b"<=>"][1]]
         mirror, code, out = self.check(replies)
         self.assertEqual(code, 1)
         self.assertIn("FAIL <=> reports <= D MAIN A I>", out)
@@ -463,9 +484,7 @@ class JoinKeepsJgTest(unittest.TestCase):
     def check(self, **changes):
         replies = dict(JOIN)
         replies.update({k.encode(): v for k, v in changes.items()})
-        # join-keeps-jg reads a <=> poll in its first window as a second
-        # PROG track (#89)
-        mirror = FakeMirror(replies=replies, polls=False)
+        mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "join-keeps-jg", "--wait", "0.5"])
@@ -596,9 +615,7 @@ EXT = {
 
 class ExtRefusesModifiersTest(unittest.TestCase):
     def check(self, replies):
-        # ext-refuses-modifiers reads a <=> poll in its window as a second D
-        # state (#89)
-        mirror = FakeMirror(replies=replies, polls=False)
+        mirror = FakeMirror(replies=replies)
         self.addCleanup(mirror.close)
         code, out = run(["--port", str(mirror.port), "--window", WINDOW,
                          "ext-refuses-modifiers"])
