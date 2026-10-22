@@ -1,6 +1,6 @@
 // Native test of what the power lines report for a track, PowerLine.h: a
 // track in ALERT reads <p0 x>, and a <p1 x> is then due (#78). Run with
-// rails49/test-guard.sh. Words as in CONTEXT.md.
+// rails49/test-guard.sh. Words as in GLOSSARY.md.
 
 #include "../PowerLine.h"
 #include <cstdio>

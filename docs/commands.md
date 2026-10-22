@@ -6,7 +6,7 @@ those clients use and every command this fork added or changed, as the
 current source behaves. Everything else upstream has is left out; see
 [Upstream commands](#upstream-commands).
 
-Words used here are defined in [CONTEXT.md](../CONTEXT.md). The dccex side
+Words used here are defined in [GLOSSARY.md](../GLOSSARY.md). The dccex side
 calls a Track a "district" and an Overload a "trip".
 
 ## Rules for every command
@@ -84,7 +84,7 @@ display. Lines not described here come from upstream features.
 
 ### Join: `<1 JOIN>`
 
-- **Effect:** turns on [Join](../CONTEXT.md) and powers every MAIN
+- **Effect:** turns on [Join](../GLOSSARY.md) and powers every MAIN
   track and the PROG track. While joined the PROG track carries the MAIN
   signal and reads `MAIN` in `<=>` and `<D GUARD>`.
   - The use of the JOIN function allows the DCC signal for the `MAIN` track to also be sent to the `PROG` track. This allows the prog track to act as a siding (or similar) in the main layout even though it is isolated electrically and connected to the programming track output.

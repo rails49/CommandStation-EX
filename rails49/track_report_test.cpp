@@ -1,6 +1,6 @@
 // Native test of the rule TrackManager::reportedMode() uses: which tracks
 // report the Polarity their hardware has rather than the INV the host set.
-// Run with rails49/test-guard.sh. Words as in CONTEXT.md.
+// Run with rails49/test-guard.sh. Words as in GLOSSARY.md.
 
 #include "../TrackModeReport.h"
 #include <cstdio>

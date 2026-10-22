@@ -1,6 +1,6 @@
 // Native test of the Guard's per-tick decision, guardDecide(). Run with
 // rails49/test-guard.sh. Each test feeds a sequence of ticks and asserts on
-// which track is reversed or cut on which tick. Words as in CONTEXT.md.
+// which track is reversed or cut on which tick. Words as in GLOSSARY.md.
 
 #include "../GuardDecision.h"
 #include <cstdio>

@@ -1,6 +1,6 @@
 // Native test of the rule setTrackMode() uses to tell a modifier-only change
 // from a change of Track Mode that needs the full track setup. Run with
-// rails49/test-guard.sh. Words as in CONTEXT.md.
+// rails49/test-guard.sh. Words as in GLOSSARY.md.
 
 #include "../TrackModeChange.h"
 #include <cstdio>
